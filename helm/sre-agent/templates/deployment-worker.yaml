@@ -1,0 +1,50 @@
+{{- if .Values.sreRag.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.sreRag.worker.name }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.sreRag.worker.name }}
+    app.kubernetes.io/component: sre-rag
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.sreRag.worker.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.sreRag.worker.name }}
+        app.kubernetes.io/component: sre-rag
+        {{- include "sre-agent.labels" . | nindent 8 }}
+    spec:
+{{- include "sre-agent.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ .Values.rbac.legacyServiceAccount }}
+      containers:
+        - name: worker
+          image: "{{ .Values.sreRag.worker.image.repository }}:{{ .Values.sreRag.worker.image.tag }}"
+          imagePullPolicy: {{ if .Values.offlineMode }}Never{{ else }}{{ .Values.sreRag.worker.image.pullPolicy }}{{ end }}
+          env:
+            - name: POSTGRES_HOST
+              value: {{ .Values.config.postgresHost | quote }}
+            - name: POSTGRES_PORT
+              value: {{ .Values.config.postgresPort | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.config.postgresUser | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.config.postgresPassword | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.config.postgresDb | quote }}
+            - name: REDIS_HOST
+              value: {{ .Values.config.redisHost | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.config.redisPort | quote }}
+            - name: LOKI_URL
+              value: {{ .Values.config.lokiUrl | quote }}
+            - name: LLM_GATEWAY_URL
+              value: {{ .Values.config.llmGatewayUrl | quote }}
+          resources:
+            {{- toYaml .Values.sreRag.worker.resources | nindent 12 }}
+{{- end }}

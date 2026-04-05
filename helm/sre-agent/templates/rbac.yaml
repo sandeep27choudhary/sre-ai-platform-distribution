@@ -1,0 +1,135 @@
+{{- if .Values.rbac.create }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.rbac.readonlyServiceAccount }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    role: mcp-readonly
+    {{- include "sre-agent.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "sre-agent.fullname" . }}-mcp-cluster-reader
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - events
+      - services
+      - endpoints
+      - nodes
+      - namespaces
+      - configmaps
+      - replicationcontrollers
+      - persistentvolumeclaims
+      - persistentvolumes
+      - resourcequotas
+      - limitranges
+      - serviceaccounts
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["list"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - statefulsets
+      - replicasets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - ingresses
+      - networkpolicies
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "sre-agent.fullname" . }}-mcp-cluster-reader-binding
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.rbac.readonlyServiceAccount }}
+    namespace: {{ include "sre-agent.namespace" . }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "sre-agent.fullname" . }}-mcp-cluster-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.rbac.legacyServiceAccount }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    role: legacy-alias
+    {{- include "sre-agent.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "sre-agent.fullname" . }}-legacy-sa-reader-binding
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.rbac.legacyServiceAccount }}
+    namespace: {{ include "sre-agent.namespace" . }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "sre-agent.fullname" . }}-mcp-cluster-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-actions-sa
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    role: mcp-actions
+    {{- include "sre-agent.labels" . | nindent 4 }}
+  annotations:
+    mcp.sre-ai/enabled: "false"
+    mcp.sre-ai/note: >-
+      No permissions by default. Bind a Role/ClusterRole to enable write actions.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mcp-actions-role
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+  annotations:
+    mcp.sre-ai/note: >-
+      NOT bound by default. Create a RoleBinding to enable.
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale"]
+    verbs: ["patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get"]
+{{- end }}

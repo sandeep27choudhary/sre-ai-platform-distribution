@@ -1,0 +1,36 @@
+{{- if .Values.fluentbit.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.fluentbit.name }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.fluentbit.name }}
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.fluentbit.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.fluentbit.name }}
+        {{- include "sre-agent.labels" . | nindent 8 }}
+    spec:
+{{- include "sre-agent.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ .Values.rbac.legacyServiceAccount }}
+      containers:
+        - name: fluent-bit
+          image: "{{ .Values.fluentbit.image.repository }}:{{ .Values.fluentbit.image.tag }}"
+          imagePullPolicy: {{ if .Values.offlineMode }}Never{{ else }}{{ .Values.fluentbit.image.pullPolicy }}{{ end }}
+          volumeMounts:
+            - name: config
+              mountPath: /fluent-bit/etc
+          resources:
+            {{- toYaml .Values.fluentbit.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: fluentbit-config
+{{- end }}

@@ -1,0 +1,98 @@
+# values-prod.yaml — Production overrides
+# Usage: helm install sre-ai ./helm/sre-agent -f ./helm/sre-agent/values-prod.yaml --set license.key=<KEY>
+
+sreCore:
+  replicas: 2
+  image:
+    pullPolicy: Always
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits:   { cpu: "1", memory: 1Gi }
+
+srePlatformUi:
+  replicas: 2
+  image:
+    pullPolicy: Always
+
+sreRag:
+  postgres:
+    persistence:
+      size: 10Gi
+    resources:
+      requests: { cpu: 500m, memory: 512Mi }
+      limits:   { cpu: "1", memory: 1Gi }
+
+sreLlm:
+  resources:
+    requests: { cpu: "2", memory: 4Gi }
+    limits:   { cpu: "4", memory: 8Gi }
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+
+config:
+  # CHANGE THESE:
+  jwtSecretKey: "CHANGE-ME-use-openssl-rand-hex-64"
+  sreAdminPassword: "CHANGE-ME-strong-password"
+  postgresPassword: "CHANGE-ME-postgres-password"
+
+license:
+  key: ""               # Set via --set license.key=<KEY>
+  # RS256: leave signingSecret empty; set publicKey to your verification PEM or bake into the API image
+  signingSecret: ""
+  publicKey: ""
+  enforcement: strict
+
+autoscaling:
+  api:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  worker:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+
+ingress:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  tls:
+    - secretName: sre-platform-tls
+      hosts:
+        - sre.example.com
+  hosts:
+    - host: sre.example.com
+      paths:
+        - path: /auth
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /agent
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /execution
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /platform
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /
+          pathType: Prefix
+          service: sre-platform-ui
+          port: 80
+
+minio:
+  rootPassword: "CHANGE-ME-minio-password"
+  persistence:
+    size: 10Gi
+
+archive:
+  accessKey: "CHANGE-ME-minio-access-key"
+  secretKey: "CHANGE-ME-minio-secret-key"

@@ -1,0 +1,12 @@
+{{- if and .Values.ui .Values.ui.suggestionsConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.ui.suggestionsConfigMap }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+data:
+  suggestions.json: |
+    {"sections":[{"id":"cluster_health","label":"Cluster Health","prompts":["Is API server reachable?","Are nodes reporting Ready?","Are control plane components healthy?","Any cluster-wide events or outages?","Run full cluster health check"]},{"id":"workloads","label":"Workload Health","prompts":["Which pods are failing?","Show CrashLoopBackOff pods","Show restart spikes","List unhealthy deployments","Diagnose a specific pod"]},{"id":"scheduling","label":"Scheduling","prompts":["Pending pods and why?","Insufficient CPU or memory?","Taints/affinity mismatch?","Node selector conflicts?","Check scheduling failures"]},{"id":"storage","label":"Storage","prompts":["PVC not bound?","Volume mount errors?","CSI driver healthy?","Disk pressure on nodes?","Storage-related failures"]},{"id":"network","label":"Network","prompts":["Service endpoints populated?","DNS resolution working?","NetworkPolicy blocking traffic?","Pod to service connectivity check","Ingress issues"]},{"id":"forensics","label":"Forensics","prompts":["Run full cluster diagnosis","Explain recent failures","What changed recently?","Timeline of last 30 minutes","Top resource consumers"]}],"quick_actions":[{"label":"Full Diagnosis","prompt":"Run a full cluster forensic diagnosis and summarize root causes"},{"label":"Health Check","prompt":"Check cluster, nodes, and control plane health"},{"label":"Unhealthy Pods","prompt":"List and explain all unhealthy pods"},    {"label":"Recent Events","prompt":"Show important events in last 30 minutes"}]}
+{{- end -}}

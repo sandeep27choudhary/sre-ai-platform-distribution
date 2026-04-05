@@ -1,0 +1,25 @@
+apiVersion: v2
+name: sre-ai-platform
+description: >-
+  Production-grade Kubernetes SRE AI Platform. Deterministic RCA engine,
+  forensic investigation, action policy engine, admin governance, and
+  license-controlled feature access. Local-first, offline-capable.
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+kubeVersion: ">=1.25.0"
+keywords:
+  - sre
+  - kubernetes
+  - troubleshooting
+  - rag
+  - rca
+  - incident-response
+  - forensic
+  - ollama
+  - license
+home: https://github.com/sandeep27choudhary/rag-k8s-llm
+maintainers:
+  - name: Sandeep Choudhary
+sources:
+  - https://github.com/sandeep27choudhary/rag-k8s-llm

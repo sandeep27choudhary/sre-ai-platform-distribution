@@ -1,0 +1,65 @@
+{{- if .Values.sreLlm.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.sreLlm.name }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.sreLlm.name }}
+    app.kubernetes.io/component: sre-llm
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.sreLlm.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.sreLlm.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.sreLlm.name }}
+        app.kubernetes.io/component: sre-llm
+        {{- include "sre-agent.labels" . | nindent 8 }}
+    spec:
+{{- include "sre-agent.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ .Values.rbac.legacyServiceAccount }}
+      containers:
+        - name: ollama
+          image: "{{ .Values.sreLlm.image.repository }}:{{ .Values.sreLlm.image.tag }}"
+          imagePullPolicy: {{ if .Values.offlineMode }}Never{{ else }}{{ .Values.sreLlm.image.pullPolicy }}{{ end }}
+          ports:
+            - containerPort: 11434
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+          resources:
+            {{- toYaml .Values.sreLlm.resources | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.sreLlm.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.sreLlm.livenessProbe | nindent 12 }}
+      volumes:
+        - name: models
+          {{- if .Values.sreLlm.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: ollama-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.sreLlm.name }}
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Values.sreLlm.name }}
+  ports:
+    - port: 11434
+      targetPort: 11434
+      name: http
+{{- end }}

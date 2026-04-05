@@ -1,0 +1,52 @@
+================================================================
+  SRE AI Platform v{{ .Chart.AppVersion }}
+  Plan: {{ .Values.license.key | default "community (no license)" | trunc 20 }}
+================================================================
+
+Access the platform:
+
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  UI:    http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}/
+  API:   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}/agent/health
+  Admin: http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}/admin
+{{- end }}
+
+  Minikube / local clusters: Ingress is often exposed on a NodePort, not :80 on the node IP.
+  If the URL above does not load in your browser:
+    1) Map the host to Minikube IP:  echo "$(minikube ip) {{ (index .Values.ingress.hosts 0).host }}" | sudo tee -a /etc/hosts
+    2) Or use the ingress NodePort: kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}{"\n"}'
+       then open http://$(minikube ip):<nodePort>/  with Host header {{ (index .Values.ingress.hosts 0).host }} (e.g. curl -H "Host: ...")
+    3) Easiest: port-forward the UI Service (see below) — works without DNS or ingress.
+{{- else }}
+  kubectl port-forward svc/{{ .Values.srePlatformUi.name }} 3001:80 -n {{ .Release.Namespace }}
+  kubectl port-forward svc/api 8000:8000 -n {{ .Release.Namespace }}
+  Then open http://localhost:3001
+{{- end }}
+
+  Reliable access (works even when Ingress/DNS is wrong):
+    kubectl port-forward svc/{{ .Values.srePlatformUi.name }} 3001:80 -n {{ .Release.Namespace }}
+    kubectl port-forward svc/{{ .Values.sreCore.name }} 8000:8000 -n {{ .Release.Namespace }}
+    Open http://localhost:3001
+    Use port 80 on the Service (not 3000). The container listens on 3000; Service maps 80 -> 3000.
+
+Default credentials:
+  Email:    {{ .Values.config.sreAdminEmail }}
+  Password: {{ .Values.config.sreAdminPassword }}
+  ** CHANGE THESE IN PRODUCTION **
+
+License:
+{{- if .Values.license.key }}
+  Licensed installation. Features gated by plan.
+{{- else if .Values.license.trialStartEpoch }}
+  Eval trial: community tier for license.trialDays (default 7) from install time. Then set license.key or renew.
+{{- else }}
+  Community edition (no install-time trial clock). Upgrade for forensic RCA, execution engine, admin panel.
+  Use scripts/install.sh (sets trialStartEpoch) or: helm upgrade --set-string license.trialStartEpoch=$(date +%s)
+  Set license.key to activate a full plan: helm upgrade --set-string license.key=<KEY>
+{{- end }}
+
+Useful commands:
+  helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  kubectl get pods -n {{ .Release.Namespace }}
+  kubectl logs -l app=api -n {{ .Release.Namespace }} --tail=50

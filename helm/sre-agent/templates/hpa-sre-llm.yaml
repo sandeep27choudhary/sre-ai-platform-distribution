@@ -1,0 +1,24 @@
+{{- if and .Values.sreLlm.enabled .Values.sreLlm.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Values.sreLlm.name }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.sreLlm.name }}
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Values.sreLlm.name }}
+  minReplicas: {{ .Values.sreLlm.hpa.minReplicas }}
+  maxReplicas: {{ .Values.sreLlm.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.sreLlm.hpa.targetCPUUtilizationPercentage }}
+{{- end }}

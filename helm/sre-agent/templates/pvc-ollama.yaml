@@ -1,0 +1,15 @@
+{{- if and .Values.sreLlm.enabled .Values.sreLlm.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-pvc
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.sreLlm.name }}
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.sreLlm.persistence.size }}
+{{- end }}

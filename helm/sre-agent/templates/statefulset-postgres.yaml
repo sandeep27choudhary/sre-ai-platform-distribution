@@ -1,0 +1,85 @@
+{{- if .Values.sreRag.postgres.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.sreRag.postgres.name }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.sreRag.postgres.name }}
+    app.kubernetes.io/component: sre-rag
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ .Values.sreRag.postgres.name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.sreRag.postgres.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.sreRag.postgres.name }}
+        app.kubernetes.io/component: sre-rag
+        {{- include "sre-agent.labels" . | nindent 8 }}
+    spec:
+{{- include "sre-agent.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ .Values.rbac.legacyServiceAccount }}
+      containers:
+        - name: postgres
+          image: "{{ .Values.sreRag.postgres.image.repository }}:{{ .Values.sreRag.postgres.image.tag }}"
+          imagePullPolicy: {{ if .Values.offlineMode }}Never{{ else }}{{ .Values.sreRag.postgres.image.pullPolicy }}{{ end }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.sreRag.postgres.auth.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.sreRag.postgres.auth.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.sreRag.postgres.auth.database | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            {{- toYaml .Values.sreRag.postgres.resources | nindent 12 }}
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - "-U"
+                - {{ .Values.sreRag.postgres.auth.user | quote }}
+                - "-d"
+                - {{ .Values.sreRag.postgres.auth.database | quote }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - "-U"
+                - {{ .Values.sreRag.postgres.auth.user | quote }}
+                - "-d"
+                - {{ .Values.sreRag.postgres.auth.database | quote }}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.sreRag.postgres.name }}
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Values.sreRag.postgres.name }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+{{- end }}

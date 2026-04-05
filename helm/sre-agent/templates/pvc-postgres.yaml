@@ -1,0 +1,15 @@
+{{- if .Values.sreRag.postgres.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.sreRag.postgres.name }}
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.sreRag.postgres.persistence.size }}
+{{- end }}

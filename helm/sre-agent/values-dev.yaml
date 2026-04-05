@@ -1,0 +1,44 @@
+# values-dev.yaml — Development overrides
+# Usage: helm install sre-ai ./helm/sre-agent -f ./helm/sre-agent/values-dev.yaml
+
+offlineMode: true   # Local images, no registry pull
+
+sreCore:
+  replicas: 1
+  image:
+    repository: rag-k8s-llm-api
+    tag: latest
+    pullPolicy: Never
+
+srePlatformUi:
+  replicas: 1
+  image:
+    repository: sre-platform-ui
+    tag: latest
+    pullPolicy: Never
+
+sreRag:
+  worker:
+    image:
+      repository: rag-k8s-llm-worker
+      tag: latest
+      pullPolicy: Never
+
+llmGateway:
+  image:
+    repository: rag-k8s-llm-llm-gateway
+    tag: latest
+    pullPolicy: Never
+
+config:
+  jwtSecretKey: "dev-secret-not-for-production-change-me"
+  sreAdminPassword: "changeme"
+
+license:
+  key: ""   # Community edition for dev
+
+autoscaling:
+  api:
+    enabled: false
+  worker:
+    enabled: false

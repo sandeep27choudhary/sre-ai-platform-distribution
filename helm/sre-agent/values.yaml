@@ -1,0 +1,436 @@
+# sre-agent Helm chart values
+# Kubernetes Forensic SRE Assistant – production-ready, lightweight deployment
+
+# -----------------------------------------------------------------------------
+# Global
+# -----------------------------------------------------------------------------
+# Install with: helm install sre-agent ./helm/sre-agent -n sre-ai --create-namespace
+# Resources are placed in .Release.Namespace. createNamespace: true creates the namespace.
+createNamespace: false   # set true to create Namespace; else use -n X --create-namespace
+nameOverride: ""
+fullnameOverride: ""
+
+# -----------------------------------------------------------------------------
+# Private registry pull credentials (optional)
+# Create: kubectl create secret docker-registry regcred --docker-server=... ...
+# -----------------------------------------------------------------------------
+imagePullSecrets: []
+#  - name: ghcr-pull-secret
+
+# -----------------------------------------------------------------------------
+# sre-core: Investigation and reasoning orchestrator (API + embedded data plane)
+# Single deployment: intent-engine, entity-resolver, playbook-orchestrator,
+# specialist-investigators, evidence-graph-builder, cluster-indexer, api-server
+# -----------------------------------------------------------------------------
+sreCore:
+  name: api
+  enabled: true
+  replicas: 1
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-api
+    tag: latest
+    pullPolicy: IfNotPresent  # minikube: use -f values-dev.yaml for local image names + Never
+  serviceAccountName: mcp-readonly-sa
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # Probes
+  startupProbe:
+    httpGet: { path: /health, port: 8000 }
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    failureThreshold: 30
+    timeoutSeconds: 3
+  readinessProbe:
+    httpGet: { path: /health, port: 8000 }
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+    timeoutSeconds: 5
+  livenessProbe:
+    httpGet: { path: /health, port: 8000 }
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    failureThreshold: 5
+    timeoutSeconds: 5
+
+# -----------------------------------------------------------------------------
+# sre-llm: Local model server (Ollama) – scale independently
+# -----------------------------------------------------------------------------
+sreLlm:
+  name: ollama
+  enabled: true
+  replicas: 1
+  scalable: true   # HPA enabled when true
+  image:
+    repository: ollama/ollama
+    tag: latest
+    pullPolicy: IfNotPresent
+  # Model storage
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  readinessProbe:
+    httpGet: { path: /, port: 11434 }
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  livenessProbe:
+    httpGet: { path: /, port: 11434 }
+    initialDelaySeconds: 30
+    periodSeconds: 15
+  # HPA (only when scalable and replicas > 1 or hpa enabled)
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+
+# -----------------------------------------------------------------------------
+# sre-rag: Knowledge base – Postgres (pgvector) + Worker
+# -----------------------------------------------------------------------------
+sreRag:
+  postgres:
+    enabled: true
+    name: postgres
+    image:
+      repository: pgvector/pgvector
+      tag: pg16
+      pullPolicy: IfNotPresent
+    persistence:
+      size: 2Gi   # 1–5Gi per spec
+    resources:
+      requests: { cpu: 200m, memory: 256Mi }
+      limits:   { cpu: 500m, memory: 512Mi }
+    # Default credentials; override with existingSecret in production
+    auth:
+      user: rag
+      password: rag
+      database: rag
+  worker:
+    enabled: true
+    name: worker
+    image:
+      repository: ghcr.io/sandeep27choudhary/sre-agent-worker
+      tag: latest
+      pullPolicy: IfNotPresent
+    resources:
+      requests: { cpu: 200m, memory: 128Mi }
+      limits:   { cpu: 500m, memory: 256Mi }
+    readinessProbe:
+      exec: { command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000', timeout=1)"] }
+      initialDelaySeconds: 15
+      periodSeconds: 10
+    livenessProbe:
+      exec: { command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000', timeout=1)"] }
+      initialDelaySeconds: 30
+      periodSeconds: 15
+
+# -----------------------------------------------------------------------------
+# ui: SRE Console (task-oriented, one-click diagnostics)
+# -----------------------------------------------------------------------------
+ui:
+  mode: sre
+  suggestionsConfigMap: sre-ui-prompts   # ConfigMap with suggestions.json; empty = use API default
+  hideGenericContent: true
+
+# -----------------------------------------------------------------------------
+# sre-platform-ui: Secure SRE investigation console
+# -----------------------------------------------------------------------------
+srePlatformUi:
+  name: sre-platform-ui
+  enabled: true
+  replicas: 1
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-platform-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 256Mi }
+
+# -----------------------------------------------------------------------------
+# Loki (log store) – optional for RAG pipeline
+# -----------------------------------------------------------------------------
+loki:
+  enabled: true
+  name: loki
+  image:
+    repository: grafana/loki
+    tag: "2.9.4"
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 300m, memory: 256Mi }
+  retentionPeriod: 168h   # 7 days
+
+# -----------------------------------------------------------------------------
+# Fluent Bit (log shipper → Loki)
+# -----------------------------------------------------------------------------
+fluentbit:
+  enabled: true
+  name: fluent-bit
+  image:
+    repository: fluent/fluent-bit
+    tag: "3.2.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 50m, memory: 32Mi }
+    limits:   { cpu: 100m, memory: 64Mi }
+
+# -----------------------------------------------------------------------------
+# Redis (cache)
+# -----------------------------------------------------------------------------
+redis:
+  enabled: true
+  name: redis
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 100m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
+
+# -----------------------------------------------------------------------------
+# LLM Gateway – provider-agnostic (Ollama default; OpenAI/OpenRouter/Gemini optional)
+# -----------------------------------------------------------------------------
+llmGateway:
+  name: llm-gateway
+  enabled: true
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-llm-gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+  # Provider selection: ollama | openai | openrouter | gemini
+  provider: "ollama"
+  ollama:
+    enabled: true
+    host: "http://ollama:11434"
+    model: "llama3.2"
+    embedModel: "nomic-embed-text"
+  openai:
+    enabled: false
+    apiKey: ""   # or set existingSecret + key
+  openrouter:
+    enabled: false
+    apiKey: ""
+  gemini:
+    enabled: false
+    apiKey: ""
+  # API keys from Kubernetes secret (recommended for production)
+  existingSecret: ""   # e.g. llm-gateway-secrets
+
+# -----------------------------------------------------------------------------
+# API / Core env (postgres, redis, loki, LLM gateway URL and model)
+# -----------------------------------------------------------------------------
+config:
+  postgresHost: postgres
+  postgresPort: "5432"
+  postgresUser: rag
+  postgresPassword: rag
+  postgresDb: rag
+  redisHost: redis
+  redisPort: "6379"
+  lokiUrl: "http://loki:3100"
+  llmGatewayUrl: "http://llm-gateway:8000"
+  llmModel: "llama3.2"
+  mcpActionsEnabled: "false"
+  # JWT Authentication (SRE Platform UI)
+  jwtSecretKey: "change-me-in-production-use-openssl-rand-hex-64"
+  jwtAccessTokenExpireMinutes: "60"
+  jwtRefreshTokenExpireMinutes: "10080"
+  # Admin seed (first-boot user)
+  sreAdminEmail: "admin@sre.local"
+  sreAdminPassword: "changeme"
+  # Use existing secret for Postgres password (optional)
+  existingPostgresSecret: ""
+
+# -----------------------------------------------------------------------------
+# Ingress – external access to UI (and optionally API)
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+  hosts:
+    - host: sre-agent.local
+      paths:
+        - path: /auth
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /agent
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /console
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /sre
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /execution
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /platform
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /api
+          pathType: Prefix
+          service: sre-platform-ui
+          port: 80
+        - path: /
+          pathType: Prefix
+          service: sre-platform-ui
+          port: 80
+  tls: []
+
+# -----------------------------------------------------------------------------
+# RBAC – least privilege, read-only for data plane
+# -----------------------------------------------------------------------------
+rbac:
+  create: true
+  readonlyServiceAccount: mcp-readonly-sa
+  legacyServiceAccount: sre-ai-sa   # alias used by non-api workloads
+
+# -----------------------------------------------------------------------------
+# Session Management — lightweight, stateless context tracking
+# -----------------------------------------------------------------------------
+session:
+  maxContextTokens: 8000     # warn when conversation approaches this limit
+  warningThreshold: 0.8      # warn at 80% of maxContextTokens
+  retentionDays: 30           # informational only (no server-side state)
+
+# -----------------------------------------------------------------------------
+# RCA Archive — async archival of forensic reports to object storage
+# -----------------------------------------------------------------------------
+archive:
+  enabled: true
+  provider: s3                # S3-compatible (MinIO)
+  bucket: sre-rca-archive
+  endpoint: http://minio:9000
+  accessKey: minioadmin
+  secretKey: minioadmin
+  retentionDays: 15           # lifecycle policy on bucket
+
+# -----------------------------------------------------------------------------
+# MinIO — S3-compatible object storage for RCA archive
+# -----------------------------------------------------------------------------
+minio:
+  name: minio
+  enabled: true
+  image:
+    repository: minio/minio
+    tag: latest
+    pullPolicy: IfNotPresent
+  rootUser: minioadmin
+  rootPassword: minioadmin
+  persistence:
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# -----------------------------------------------------------------------------
+# Licensing — offline JWT (RS256) or legacy HMAC
+# Production: bake LICENSE_PUBLIC_KEY_PEM into the API image, or set license.publicKey below.
+# Vendor signs keys with a private key (never ship to customers). See scripts/generate-license.py
+# -----------------------------------------------------------------------------
+license:
+  key: ""                    # Customer entitlement JWT or legacy HMAC token
+  existingSecret: ""         # Secret name containing LICENSE_KEY (optional)
+  # Legacy HMAC only — leave empty when using RS256 + public key (recommended)
+  signingSecret: ""
+  # PEM for RS256 verification (optional if public key is copied into the image at /app/license_public.pem)
+  publicKey: ""
+  # permissive: empty/invalid key → community tier (dev). strict: require valid LICENSE_KEY
+  enforcement: permissive
+  reloadIntervalSeconds: "300"   # re-read LICENSE_KEY from env; 0 = every request
+  # Install-time eval trial when license.key is empty: unix seconds at first install (scripts/install.sh sets this)
+  trialStartEpoch: ""
+  trialDays: 7
+
+  # Plans: community, basic, pro, enterprise — RS256: scripts/generate-license.py --private-key vendor.pem
+
+# -----------------------------------------------------------------------------
+# HPA — Horizontal Pod Autoscaler (API and Worker)
+# -----------------------------------------------------------------------------
+autoscaling:
+  api:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 75
+  worker:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 80
+
+# -----------------------------------------------------------------------------
+# Security — pod security, non-root, read-only FS
+# -----------------------------------------------------------------------------
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+containerSecurityContext:
+  readOnlyRootFilesystem: false
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+# -----------------------------------------------------------------------------
+# Network Policies — least privilege pod-to-pod communication
+# -----------------------------------------------------------------------------
+networkPolicies:
+  enabled: true   # set false if cluster CNI does not support NetworkPolicy
+
+# -----------------------------------------------------------------------------
+# Offline / air-gapped: no image pull from internet
+# -----------------------------------------------------------------------------
+offlineMode: false   # set true to force imagePullPolicy: Never
+
+# -----------------------------------------------------------------------------
+# Environment overrides (dev / staging / prod)
+# Merge these with: helm install -f values-prod.yaml ...
+# -----------------------------------------------------------------------------
+# Example values-prod.yaml:
+#   sreCore:
+#     replicas: 2
+#     image:
+#       pullPolicy: Always
+#   config:
+#     jwtSecretKey: "<generated-64-char-secret>"
+#     sreAdminPassword: "<strong-password>"
+#   license:
+#     key: "<license-key>"
+#   ingress:
+#     tls:
+#       - secretName: sre-tls
+#         hosts: ["sre.example.com"]

@@ -1,0 +1,68 @@
+# -----------------------------------------------------------------------------
+# Production-oriented overlay — GHCR first-party images + strict license enforcement.
+# Merge with chart defaults or with values-prod.yaml for HA, ingress, and resource limits.
+#
+# Install (set secrets via --set or external secret manager; never commit real values):
+#
+#   helm upgrade --install sre-agent ./helm/sre-agent -n sre-ai --create-namespace \
+#     -f helm/sre-agent/values-example.yaml \
+#     -f helm/sre-agent/values-production.yaml \
+#     --set-string license.key="<JWT_FROM_VENDOR>" \
+#     --set-string config.jwtSecretKey="$(openssl rand -hex 32)" \
+#     --set-string config.postgresPassword="$(openssl rand -hex 16)" \
+#     --set-string config.sreAdminPassword="$(openssl rand -base64 24)"
+#
+# RS256: set license.publicKey to vendor PEM, or rely on public key baked into API image.
+# -----------------------------------------------------------------------------
+
+createNamespace: true
+
+imagePullSecrets: []
+
+offlineMode: false
+
+sreCore:
+  replicas: 1
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-api
+    tag: latest
+    pullPolicy: IfNotPresent
+
+sreRag:
+  worker:
+    image:
+      repository: ghcr.io/sandeep27choudhary/sre-agent-worker
+      tag: latest
+      pullPolicy: IfNotPresent
+
+srePlatformUi:
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-platform-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+
+llmGateway:
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-llm-gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+
+license:
+  key: ""
+  signingSecret: ""
+  publicKey: ""
+  enforcement: strict
+  reloadIntervalSeconds: "300"
+  trialStartEpoch: ""
+  trialDays: 7
+
+ingress:
+  enabled: false
+
+networkPolicies:
+  enabled: true
+
+config:
+  jwtSecretKey: "CHANGEME-jwt-use-openssl-rand-hex-64"
+  sreAdminPassword: "CHANGEME-admin-password"
+  postgresPassword: "CHANGEME-postgres-password"

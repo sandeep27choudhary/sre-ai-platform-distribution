@@ -1,0 +1,176 @@
+{{- if .Values.sreCore.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.sreCore.name }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.sreCore.name }}
+    app.kubernetes.io/component: sre-core
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.sreCore.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.sreCore.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.sreCore.name }}
+        app.kubernetes.io/component: sre-core
+        {{- include "sre-agent.labels" . | nindent 8 }}
+    spec:
+{{- include "sre-agent.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ .Values.sreCore.serviceAccountName }}
+      automountServiceAccountToken: true
+      containers:
+        - name: api
+          image: "{{ .Values.sreCore.image.repository }}:{{ .Values.sreCore.image.tag }}"
+          imagePullPolicy: {{ if .Values.offlineMode }}Never{{ else }}{{ .Values.sreCore.image.pullPolicy }}{{ end }}
+          ports:
+            - containerPort: 8000
+          env:
+            - name: POSTGRES_HOST
+              value: {{ .Values.config.postgresHost | quote }}
+            - name: POSTGRES_PORT
+              value: {{ .Values.config.postgresPort | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.config.postgresUser | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.existingPostgresSecret | default (printf "%s-platform" (include "sre-agent.fullname" .)) }}
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              value: {{ .Values.config.postgresDb | quote }}
+            - name: REDIS_HOST
+              value: {{ .Values.config.redisHost | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.config.redisPort | quote }}
+            - name: LOKI_URL
+              value: {{ .Values.config.lokiUrl | quote }}
+            - name: LLM_GATEWAY_URL
+              value: {{ .Values.config.llmGatewayUrl | quote }}
+            - name: LLM_MODEL
+              value: {{ .Values.config.llmModel | quote }}
+            - name: AGENT_LLM_MODEL
+              value: {{ .Values.config.llmModel | quote }}
+            - name: MCP_ACTIONS_ENABLED
+              value: {{ .Values.config.mcpActionsEnabled | quote }}
+            {{- if and .Values.ui .Values.ui.suggestionsConfigMap }}
+            - name: UI_SUGGESTIONS_CONFIG_PATH
+              value: "/app/config/suggestions.json"
+            {{- end }}
+            {{- if .Values.archive.enabled }}
+            - name: ARCHIVE_ENABLED
+              value: "true"
+            - name: ARCHIVE_ENDPOINT
+              value: {{ .Values.archive.endpoint | quote }}
+            - name: ARCHIVE_BUCKET
+              value: {{ .Values.archive.bucket | quote }}
+            - name: ARCHIVE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sre-agent.fullname" . }}-platform
+                  key: ARCHIVE_ACCESS_KEY
+            - name: ARCHIVE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sre-agent.fullname" . }}-platform
+                  key: ARCHIVE_SECRET_KEY
+            - name: ARCHIVE_RETENTION_DAYS
+              value: {{ .Values.archive.retentionDays | quote }}
+            {{- end }}
+            {{- if .Values.session }}
+            - name: SESSION_MAX_CONTEXT_TOKENS
+              value: {{ .Values.session.maxContextTokens | quote }}
+            - name: SESSION_WARNING_THRESHOLD
+              value: {{ .Values.session.warningThreshold | quote }}
+            {{- end }}
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sre-agent.fullname" . }}-platform
+                  key: JWT_SECRET_KEY
+            - name: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+              value: {{ .Values.config.jwtAccessTokenExpireMinutes | quote }}
+            - name: JWT_REFRESH_TOKEN_EXPIRE_MINUTES
+              value: {{ .Values.config.jwtRefreshTokenExpireMinutes | quote }}
+            - name: SRE_ADMIN_EMAIL
+              value: {{ .Values.config.sreAdminEmail | quote }}
+            - name: SRE_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sre-agent.fullname" . }}-platform
+                  key: SRE_ADMIN_PASSWORD
+            {{- if or .Values.license.key .Values.license.existingSecret }}
+            - name: LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.license.existingSecret | default (printf "%s-platform" (include "sre-agent.fullname" .)) }}
+                  key: LICENSE_KEY
+            {{- end }}
+            {{- if .Values.license.signingSecret }}
+            - name: LICENSE_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sre-agent.fullname" . }}-platform
+                  key: LICENSE_SIGNING_SECRET
+            {{- end }}
+            {{- if .Values.license.publicKey }}
+            - name: LICENSE_PUBLIC_KEY_PEM
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sre-agent.fullname" . }}-platform
+                  key: LICENSE_PUBLIC_KEY_PEM
+            {{- end }}
+            - name: LICENSE_ENFORCEMENT
+              value: {{ .Values.license.enforcement | quote }}
+            - name: LICENSE_RELOAD_INTERVAL_SECONDS
+              value: {{ .Values.license.reloadIntervalSeconds | quote }}
+            {{- if .Values.license.trialStartEpoch }}
+            - name: LICENSE_TRIAL_START
+              value: {{ .Values.license.trialStartEpoch | quote }}
+            {{- end }}
+            - name: LICENSE_TRIAL_DAYS
+              value: {{ .Values.license.trialDays | quote }}
+          resources:
+            {{- toYaml .Values.sreCore.resources | nindent 12 }}
+          {{- if .Values.sreCore.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.sreCore.startupProbe | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            {{- toYaml .Values.sreCore.readinessProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.sreCore.livenessProbe | nindent 12 }}
+          {{- if and .Values.ui .Values.ui.suggestionsConfigMap }}
+          volumeMounts:
+            - name: ui-prompts
+              mountPath: /app/config
+              readOnly: true
+          {{- end }}
+      {{- if and .Values.ui .Values.ui.suggestionsConfigMap }}
+      volumes:
+        - name: ui-prompts
+          configMap:
+            name: {{ .Values.ui.suggestionsConfigMap }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.sreCore.name }}
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Values.sreCore.name }}
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+{{- end }}

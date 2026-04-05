@@ -1,0 +1,99 @@
+# -----------------------------------------------------------------------------
+# Example overlay — pull first-party images from GHCR (no source required).
+# Third-party images (postgres, redis, ollama, loki, minio, …) stay public upstream.
+#
+# =============================================================================
+# CLOUD READINESS (run this before promising “helm install works anywhere”)
+# =============================================================================
+# 1) Anonymous image pull (simulates any EKS/GKE/AKS node without your credentials):
+#      docker logout ghcr.io 2>/dev/null
+#      docker pull ghcr.io/sandeep27choudhary/sre-agent-api:latest
+#    • If this SUCCEEDS → leave imagePullSecrets: [] and customers can install easily.
+#    • If you see "unauthorized" → GHCR packages are PRIVATE. Choose ONE:
+#        A) Run: gh auth login && ./scripts/ghcr-make-packages-public.sh
+#           (or GitHub → Packages → each sre-agent-* → Package settings → Public)
+#        B) Keep private: create a pull secret in the customer namespace (see below)
+#            and set imagePullSecrets so every workload can pull the four images.
+#
+# 2) Install (always set strong secrets in production):
+#
+#   helm upgrade --install sre-agent ./helm/sre-agent -n sre-ai --create-namespace \
+#     -f helm/sre-agent/values-example.yaml \
+#     --set config.jwtSecretKey="$(openssl rand -hex 32)" \
+#     --set config.postgresPassword="$(openssl rand -hex 16)" \
+#     --set config.sreAdminPassword="$(openssl rand -base64 24)"
+#
+# 3) Optional license (production): use values-production.yaml or:
+#     --set license.key="..." --set license.enforcement=strict
+#
+# 4) Ingress: enable and set host/TLS when you have a controller + DNS.
+#
+# --- Private GHCR only: create pull secret, then set imagePullSecrets ----------------
+#   kubectl create secret docker-registry ghcr-pull-secret -n sre-ai \
+#     --docker-server=ghcr.io \
+#     --docker-username=YOUR_GITHUB_USER_OR_ORG \
+#     --docker-password=ghp_xxx   # classic PAT: read:packages (and read:user if required)
+#   # Then set imagePullSecrets below to [ { name: ghcr-pull-secret } ]
+# -----------------------------------------------------------------------------
+
+createNamespace: true
+
+# Empty only works when GHCR packages are PUBLIC (see checklist above).
+# For private packages, uncomment and create the secret first:
+# imagePullSecrets:
+#   - name: ghcr-pull-secret
+imagePullSecrets: []
+
+# false = normal cloud pulls from ghcr.io / Docker Hub. true = air-gapped / minikube image load only.
+offlineMode: false
+
+# --- First-party images (ghcr.io/sandeep27choudhary/sre-agent-*) --------------------
+sreCore:
+  replicas: 1
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-api
+    tag: latest
+    pullPolicy: IfNotPresent
+
+sreRag:
+  worker:
+    image:
+      repository: ghcr.io/sandeep27choudhary/sre-agent-worker
+      tag: latest
+      pullPolicy: IfNotPresent
+
+srePlatformUi:
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-platform-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+
+llmGateway:
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-llm-gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+
+# --- Licensing: permissive = empty LICENSE_KEY ok (community / smoke). Production: use values-production.yaml.
+# Eval trial (no key): set trialStartEpoch once at install (scripts/install.sh does this), or:
+#   --set-string license.trialStartEpoch="$(date +%s)" --set license.trialDays=7
+license:
+  key: ""
+  signingSecret: ""
+  publicKey: ""
+  enforcement: permissive
+  reloadIntervalSeconds: "300"
+  trialStartEpoch: ""
+  trialDays: 7
+
+ingress:
+  enabled: false
+
+networkPolicies:
+  enabled: false
+
+# Replace via --set in real installs (do not use CHANGEME in production).
+config:
+  jwtSecretKey: "CHANGEME-jwt-use-openssl-rand-hex-64"
+  sreAdminPassword: "CHANGEME-admin-password"
+  postgresPassword: "CHANGEME-postgres-password"

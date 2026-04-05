@@ -1,0 +1,42 @@
+{{- if .Values.fluentbit.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentbit-config
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.fluentbit.name }}
+    {{- include "sre-agent.labels" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush        5
+        Log_Level    info
+        Parsers_File parsers.conf
+
+    [INPUT]
+        Name   dummy
+        Tag    dummy
+        Dummy  {"level":"ERROR","msg":"pod api-7d8f9b in CrashLoopBackOff","source":"kubelet"}
+        Rate   0.1
+
+    [INPUT]
+        Name   dummy
+        Tag    dummy
+        Dummy  {"level":"WARN","msg":"high memory usage 89% on worker-abc","source":"kubelet"}
+        Rate   0.05
+
+    [OUTPUT]
+        Name   loki
+        Match  *
+        Host   loki
+        Port   3100
+        Labels job=rag-k8s-llm
+        Line_format json
+
+  parsers.conf: |
+    [PARSER]
+        Name   json
+        Format json
+        Time_Key time
+{{- end }}

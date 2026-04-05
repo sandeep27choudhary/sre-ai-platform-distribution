@@ -1,0 +1,68 @@
+# Example overlay — pull first-party images from GHCR.
+# Copy this file and edit secrets; do not commit real passwords or license keys.
+#
+# Install (helm repo must be added first — see distribution README):
+#   helm upgrade --install sre-ai sre-ai/sre-ai-platform -n sre-ai --create-namespace \
+#     -f values-example.yaml \
+#     --set-string config.jwtSecretKey="$(openssl rand -hex 32)" \
+#     --set-string config.postgresPassword="$(openssl rand -hex 16)" \
+#     --set-string config.sreAdminPassword="$(openssl rand -base64 24)" \
+#     --set-string license.trialStartEpoch="$(date +%s)" \
+#     --set license.trialDays=7
+#
+# For production with strict license enforcement, add `-f examples/values-production.yaml`
+# or merge its settings into your own values file.
+#
+# Private GHCR: create pull secret, then set imagePullSecrets below.
+
+createNamespace: true
+
+imagePullSecrets: []
+
+offlineMode: false
+
+sreCore:
+  replicas: 1
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-api
+    tag: latest
+    pullPolicy: IfNotPresent
+
+sreRag:
+  worker:
+    image:
+      repository: ghcr.io/sandeep27choudhary/sre-agent-worker
+      tag: latest
+      pullPolicy: IfNotPresent
+
+srePlatformUi:
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-platform-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+
+llmGateway:
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-llm-gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+
+license:
+  key: ""
+  signingSecret: ""
+  publicKey: ""
+  enforcement: permissive
+  reloadIntervalSeconds: "300"
+  trialStartEpoch: ""
+  trialDays: 7
+
+ingress:
+  enabled: false
+
+networkPolicies:
+  enabled: false
+
+config:
+  jwtSecretKey: "CHANGEME-jwt-use-openssl-rand-hex-64"
+  sreAdminPassword: "CHANGEME-admin-password"
+  postgresPassword: "CHANGEME-postgres-password"

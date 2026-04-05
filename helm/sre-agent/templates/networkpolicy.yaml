@@ -1,0 +1,210 @@
+{{- if .Values.networkPolicies.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-ingress
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.sreCore.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 8000
+          protocol: TCP
+      from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.srePlatformUi.name }}
+        - namespaceSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-ingress
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.sreRag.postgres.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 5432
+          protocol: TCP
+      from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreCore.name }}
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreRag.worker.name }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-ingress
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.redis.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 6379
+          protocol: TCP
+      from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreCore.name }}
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreRag.worker.name }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ollama-ingress
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.sreLlm.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 11434
+          protocol: TCP
+      from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreCore.name }}
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreRag.worker.name }}
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.llmGateway.name }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-loki-ingress
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.loki.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 3100
+          protocol: TCP
+      from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.fluentbit.name }}
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreRag.worker.name }}
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreCore.name }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-platform-ui-ingress
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.srePlatformUi.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 3000
+          protocol: TCP
+      from:
+        - namespaceSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-minio-ingress
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.minio.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 9000
+          protocol: TCP
+      from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreCore.name }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llm-gateway-ingress
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.llmGateway.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 8000
+          protocol: TCP
+      from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreCore.name }}
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.sreRag.worker.name }}
+{{- end }}

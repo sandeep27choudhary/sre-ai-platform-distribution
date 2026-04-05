@@ -1,0 +1,62 @@
+# Production-oriented overlay — strict license enforcement and network policies enabled.
+# Use together with values-example.yaml (merge order: example first, then production):
+#
+#   helm upgrade --install sre-ai sre-ai/sre-ai-platform -n sre-ai --create-namespace \
+#     -f examples/values-example.yaml \
+#     -f examples/values-production.yaml \
+#     --set-string license.key="<JWT_FROM_VENDOR>" \
+#     --set-string config.jwtSecretKey="$(openssl rand -hex 32)" \
+#     --set-string config.postgresPassword="$(openssl rand -hex 16)" \
+#     --set-string config.sreAdminPassword="$(openssl rand -base64 24)"
+
+createNamespace: true
+
+imagePullSecrets: []
+
+offlineMode: false
+
+sreCore:
+  replicas: 1
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-api
+    tag: latest
+    pullPolicy: IfNotPresent
+
+sreRag:
+  worker:
+    image:
+      repository: ghcr.io/sandeep27choudhary/sre-agent-worker
+      tag: latest
+      pullPolicy: IfNotPresent
+
+srePlatformUi:
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-platform-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+
+llmGateway:
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-llm-gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+
+license:
+  key: ""
+  signingSecret: ""
+  publicKey: ""
+  enforcement: strict
+  reloadIntervalSeconds: "300"
+  trialStartEpoch: ""
+  trialDays: 7
+
+ingress:
+  enabled: false
+
+networkPolicies:
+  enabled: true
+
+config:
+  jwtSecretKey: "CHANGEME-jwt-use-openssl-rand-hex-64"
+  sreAdminPassword: "CHANGEME-admin-password"
+  postgresPassword: "CHANGEME-postgres-password"

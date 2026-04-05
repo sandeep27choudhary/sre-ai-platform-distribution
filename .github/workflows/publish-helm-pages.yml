@@ -1,0 +1,82 @@
+# Publish Helm chart to GitHub Pages on the public distribution repo.
+# https://<owner>.github.io/sre-ai-platform-distribution/
+#
+# Requires: Settings → Pages → Deploy from branch → gh-pages / (root)
+# Requires: Settings → Actions → Workflow permissions → Read and write
+
+name: Publish Helm chart (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "helm/sre-agent/**"
+      - "scripts/package-helm.sh"
+      - ".github/workflows/publish-helm-pages.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: helm-pages-${{ github.repository }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+
+      - name: Package chart
+        env:
+          HELM_REPO_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+        run: |
+          chmod +x ./scripts/package-helm.sh
+          ./scripts/package-helm.sh --repo-url "${HELM_REPO_URL}"
+
+      - name: Merge with existing gh-pages (keep prior chart .tgz versions)
+        env:
+          HELM_REPO_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OUT="${GITHUB_WORKSPACE}/helm-pages-publish"
+          mkdir -p "${OUT}"
+
+          git clone --branch gh-pages --depth 1 \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "${GITHUB_WORKSPACE}/gh-pages-prev" 2>/dev/null || true
+
+          if [[ -f "${GITHUB_WORKSPACE}/gh-pages-prev/index.yaml" ]]; then
+            cp "${GITHUB_WORKSPACE}/gh-pages-prev"/*.tgz "${OUT}/" 2>/dev/null || true
+            cp "${GITHUB_WORKSPACE}/gh-pages-prev/index.yaml" "${OUT}/.merge-index.yaml"
+          fi
+
+          cp "${GITHUB_WORKSPACE}"/dist/sre-ai-platform-*.tgz "${OUT}/"
+          rm -rf "${GITHUB_WORKSPACE}/gh-pages-prev"
+
+          cd "${OUT}"
+          if [[ -f .merge-index.yaml ]]; then
+            helm repo index . --url "${HELM_REPO_URL}" --merge .merge-index.yaml
+            rm -f .merge-index.yaml
+          else
+            helm repo index . --url "${HELM_REPO_URL}"
+          fi
+          ls -la
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: helm-pages-publish
+          publish_branch: gh-pages
+          force_orphan: false
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: "chore(helm): publish chart"

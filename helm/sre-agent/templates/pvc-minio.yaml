@@ -1,0 +1,15 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.minio.name }}-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.minio.name }}
+    app.kubernetes.io/part-of: {{ include "sre-agent.fullname" . }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.minio.persistence.size }}
+{{- end }}
