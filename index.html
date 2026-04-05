@@ -177,32 +177,6 @@
     .feature-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text); }
     .feature-desc  { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
 
-    /* ── PLANS ── */
-    .plans-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-    }
-    .plan-card {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 12px; padding: 1.5rem;
-      position: relative; overflow: hidden;
-    }
-    .plan-card.featured { border-color: var(--accent); }
-    .plan-card.featured::before {
-      content: 'POPULAR';
-      position: absolute; top: 12px; right: -22px;
-      background: var(--accent); color: #fff; font-size: 0.65rem;
-      font-weight: 700; padding: 3px 30px; transform: rotate(45deg);
-      letter-spacing: 0.08em;
-    }
-    .plan-name { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.4rem; }
-    .plan-title { font-size: 1.15rem; font-weight: 800; color: var(--text); margin-bottom: 1rem; }
-    .plan-features { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
-    .plan-features li { font-size: 0.8rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-    .plan-features li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
-    .plan-features li.off::before { content: '–'; color: var(--border); }
-    .plan-features li.off { color: #3d5070; }
-
     /* ── HOW IT WORKS ── */
     .pipeline {
       display: flex; flex-wrap: wrap; gap: 0; align-items: stretch;
@@ -258,7 +232,6 @@
   <div class="nav-links">
     <a href="#install">Install</a>
     <a href="#features">Features</a>
-    <a href="#plans">Plans</a>
     <a href="https://github.com/sandeep27choudhary/sre-ai-platform-distribution" target="_blank">GitHub</a>
   </div>
   <a class="nav-cta" href="#install">Get Started</a>
@@ -389,64 +362,6 @@
       <div class="feature-icon">🪖</div>
       <div class="feature-title">Lightweight</div>
       <div class="feature-desc">Runs in 6 GB total RAM on a single-node cluster. No Kafka, no Elasticsearch, no external SaaS. Just Postgres + pgvector.</div>
-    </div>
-  </div>
-</section>
-
-<!-- PLANS -->
-<section id="plans">
-  <h2>Plans</h2>
-  <p class="section-sub">Start free. Upgrade anytime with a single Helm command — no reinstall.</p>
-  <div class="plans-grid">
-    <div class="plan-card">
-      <div class="plan-name">Trial</div>
-      <div class="plan-title">Community</div>
-      <ul class="plan-features">
-        <li>7-day eval, auto-starts</li>
-        <li>Chat + cluster health</li>
-        <li>Basic RCA</li>
-        <li>2 users · 30 req/min</li>
-        <li class="off">Forensic investigation</li>
-        <li class="off">Execution engine</li>
-        <li class="off">Admin panel</li>
-      </ul>
-    </div>
-    <div class="plan-card">
-      <div class="plan-name">Starter</div>
-      <div class="plan-title">Basic</div>
-      <ul class="plan-features">
-        <li>Chat + cluster health</li>
-        <li>Basic RCA + MD/TXT export</li>
-        <li>5 users · 60 req/min</li>
-        <li class="off">Forensic investigation</li>
-        <li class="off">Execution engine</li>
-        <li class="off">PDF export</li>
-      </ul>
-    </div>
-    <div class="plan-card featured">
-      <div class="plan-name">Growth</div>
-      <div class="plan-title">Pro</div>
-      <ul class="plan-features">
-        <li>Full forensic RCA</li>
-        <li>PDF + MD + TXT export</li>
-        <li>Execution engine</li>
-        <li>Admin panel</li>
-        <li>25 users · 120 req/min</li>
-        <li class="off">Custom playbooks</li>
-        <li class="off">SSO</li>
-      </ul>
-    </div>
-    <div class="plan-card">
-      <div class="plan-name">Scale</div>
-      <div class="plan-title">Enterprise</div>
-      <ul class="plan-features">
-        <li>Everything in Pro</li>
-        <li>Custom playbooks</li>
-        <li>SSO + API access</li>
-        <li>Unlimited users</li>
-        <li>Unlimited req/min</li>
-        <li>Priority support</li>
-      </ul>
     </div>
   </div>
 </section>
