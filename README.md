@@ -38,9 +38,9 @@ If the Helm repo URL differs, check with your vendor.
 
 ---
 
-## Option B — Bootstrap script (clones upstream, runs installer)
+## Option B — Bootstrap script (clone this repo, install from bundled chart)
 
-From this repo’s raw script (works after this repository is published):
+The bootstrap script clones **this** repository (which contains **`helm/sre-agent` only** as the installable chart) and runs `./scripts/install.sh`.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash -s --
@@ -52,25 +52,32 @@ With a license key:
 curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash -s -- --license-key 'YOUR_LICENSE_KEY'
 ```
 
-This clones the **upstream** `rag-k8s-llm` repository (default branch) and runs `./scripts/install.sh`. It does **not** download private keys.
-
-**Override the upstream repo or branch:**
+With extra values (paths are relative to the cloned repo):
 
 ```bash
-export SRE_BOOTSTRAP_REPO="https://github.com/sandeep27choudhary/rag-k8s-llm.git"
+curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash -s -- \
+  --license-key 'YOUR_LICENSE_KEY' --values examples/values-production.yaml
+```
+
+**Override clone URL or branch** (forks or testing):
+
+```bash
+export SRE_BOOTSTRAP_REPO="https://github.com/sandeep27choudhary/sre-ai-platform-distribution.git"
 export SRE_BOOTSTRAP_BRANCH="main"
-curl -fsSL .../bootstrap-install.sh | bash -s --
+curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash -s --
 ```
 
 ---
 
-## Option C — Clone upstream yourself
+## Option C — Clone this repo and run the installer locally
 
 ```bash
-git clone --depth 1 https://github.com/sandeep27choudhary/rag-k8s-llm.git
-cd rag-k8s-llm
+git clone --depth 1 https://github.com/sandeep27choudhary/sre-ai-platform-distribution.git
+cd sre-ai-platform-distribution
 ./scripts/install.sh --license-key 'YOUR_LICENSE_KEY'
 ```
+
+**Full product source** (build images from source, develop features) is in the private upstream [rag-k8s-llm](https://github.com/sandeep27choudhary/rag-k8s-llm) repository — not required for a normal GHCR-based install from this chart.
 
 ---
 

@@ -28,7 +28,7 @@ sreCore:
   replicas: 1
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-api
-    tag: latest
+    tag: v1.1.0
     pullPolicy: IfNotPresent  # minikube: use -f values-dev.yaml for local image names + Never
   serviceAccountName: mcp-readonly-sa
   resources:
@@ -122,7 +122,7 @@ sreRag:
     name: worker
     image:
       repository: ghcr.io/sandeep27choudhary/sre-agent-worker
-      tag: latest
+      tag: v1.1.0
       pullPolicy: IfNotPresent
     resources:
       requests: { cpu: 200m, memory: 128Mi }
@@ -153,7 +153,7 @@ srePlatformUi:
   replicas: 1
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-platform-ui
-    tag: latest
+    tag: v1.1.0
     pullPolicy: IfNotPresent
   resources:
     requests: { cpu: 100m, memory: 128Mi }
@@ -210,7 +210,7 @@ llmGateway:
   enabled: true
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-llm-gateway
-    tag: latest
+    tag: v1.1.0
     pullPolicy: IfNotPresent
   resources:
     requests: { cpu: 50m, memory: 64Mi }

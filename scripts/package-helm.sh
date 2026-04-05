@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build distributable Helm artifacts for publishing (run from distribution repo root).
-# Outputs:
+# Package the chart shipped in this repo only: helm/sre-agent (no dependency on rag-k8s-llm checkout).
+# Run from distribution repository root. Outputs:
 #   dist/sre-ai-platform-<version>.tgz
 #   dist/index.yaml
 
