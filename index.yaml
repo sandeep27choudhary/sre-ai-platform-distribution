@@ -3,11 +3,11 @@ entries:
   sre-ai-platform:
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-04-05T17:10:13.173459697Z"
+    created: "2026-04-05T17:44:16.259380702Z"
     description: Production-grade Kubernetes SRE AI Platform. Deterministic RCA engine,
       forensic investigation, action policy engine, admin governance, and license-controlled
       feature access. Local-first, offline-capable.
-    digest: 0f0dae85ab2aa5c5e6b8b08ffe69db129c5f5002c35ae25b267f08f100a2edbe
+    digest: 02077e6a21c3be4d87cb52d1dd1e37371ad460f46a1c69f34177b7248f2bd0fd
     home: https://github.com/sandeep27choudhary/rag-k8s-llm
     keywords:
     - sre
@@ -31,7 +31,7 @@ entries:
     version: 2.1.0
   - apiVersion: v2
     appVersion: 2.0.0
-    created: "2026-04-05T17:10:13.171916776Z"
+    created: "2026-04-05T17:44:16.257908549Z"
     description: Production-grade Kubernetes SRE AI Platform. Deterministic RCA engine,
       forensic investigation, action policy engine, admin governance, and license-controlled
       feature access. Local-first, offline-capable.
@@ -57,4 +57,4 @@ entries:
     urls:
     - https://sandeep27choudhary.github.io/sre-ai-platform-distribution/sre-ai-platform-2.0.0.tgz
     version: 2.0.0
-generated: "2026-04-05T17:10:13.169691072Z"
+generated: "2026-04-05T17:44:16.256217007Z"
