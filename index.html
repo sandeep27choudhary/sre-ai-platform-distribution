@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SreA — Kubernetes SRE Assistant</title>
+  <meta name="description" content="SreA — Kubernetes SRE Assistant. Deterministic RCA, forensic investigation, and autonomous incident response on your cluster." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0f1e;
+      --bg2:       #0d1528;
+      --bg3:       #111d35;
+      --border:    #1e3058;
+      --accent:    #1e5fc2;
+      --accent2:   #2e7de9;
+      --accent-glow: rgba(30,95,194,0.25);
+      --text:      #e2e8f7;
+      --muted:     #7a90b8;
+      --green:     #22d3a3;
+      --yellow:    #f5a623;
+      --red:       #f06060;
+      --code-bg:   #060c1a;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+      min-height: 100vh;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,15,30,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 60px;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-brand img { height: 32px; filter: brightness(0) invert(1); }
+    .nav-brand span { font-size: 1.1rem; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
+    .nav-links { display: flex; gap: 1.5rem; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.875rem; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      background: var(--accent); color: #fff; border: none; cursor: pointer;
+      padding: 0.45rem 1.1rem; border-radius: 6px; font-size: 0.85rem;
+      font-weight: 600; text-decoration: none; transition: background 0.2s;
+    }
+    .nav-cta:hover { background: var(--accent2); }
+
+    /* ── HERO ── */
+    .hero {
+      text-align: center;
+      padding: 6rem 1.5rem 4rem;
+      background: radial-gradient(ellipse 70% 50% at 50% -10%, rgba(30,95,194,0.18) 0%, transparent 70%);
+    }
+    .hero-logo {
+      width: 90px; height: 90px; object-fit: contain;
+      filter: brightness(0) invert(1) drop-shadow(0 0 20px rgba(30,95,194,0.6));
+      margin-bottom: 1.5rem;
+      animation: float 4s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-8px); }
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(30,95,194,0.15); border: 1px solid var(--accent);
+      color: var(--accent2); border-radius: 100px;
+      padding: 0.3rem 0.9rem; font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.04em; margin-bottom: 1.2rem;
+    }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800; line-height: 1.15;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #ffffff 30%, #7aa8f5 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 1.1rem;
+    }
+    .hero-sub {
+      max-width: 600px; margin: 0 auto 2.5rem;
+      color: var(--muted); font-size: 1.05rem;
+    }
+    .hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--accent); color: #fff; border: none;
+      padding: 0.75rem 1.8rem; border-radius: 8px; font-size: 0.95rem;
+      font-weight: 600; cursor: pointer; text-decoration: none;
+      box-shadow: 0 0 24px var(--accent-glow);
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .btn-primary:hover { background: var(--accent2); box-shadow: 0 0 32px rgba(30,95,194,0.4); }
+    .btn-ghost {
+      background: transparent; color: var(--text);
+      border: 1px solid var(--border); padding: 0.75rem 1.8rem;
+      border-radius: 8px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-ghost:hover { border-color: var(--accent2); color: var(--accent2); }
+
+    /* ── STATS BAR ── */
+    .stats {
+      display: flex; justify-content: center; gap: 0; flex-wrap: wrap;
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      background: var(--bg2); padding: 1.2rem 1rem;
+    }
+    .stat { text-align: center; padding: 0.5rem 2.5rem; border-right: 1px solid var(--border); }
+    .stat:last-child { border-right: none; }
+    .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--accent2); }
+    .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    /* ── INSTALL SECTION ── */
+    section { padding: 4rem 1.5rem; max-width: 900px; margin: 0 auto; }
+    h2 {
+      font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem;
+      background: linear-gradient(90deg, #fff, #7aa8f5);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .section-sub { color: var(--muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+    .install-tabs { display: flex; gap: 0.5rem; margin-bottom: 0; }
+    .tab {
+      padding: 0.5rem 1.2rem; border-radius: 6px 6px 0 0;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      border: 1px solid transparent; border-bottom: none;
+      color: var(--muted); background: transparent; transition: all 0.2s;
+    }
+    .tab.active { background: var(--code-bg); border-color: var(--border); color: var(--text); }
+    .tab:hover:not(.active) { color: var(--text); }
+
+    .code-block {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 0 8px 8px 8px; padding: 1.4rem 1.6rem;
+      position: relative; overflow-x: auto;
+    }
+    .code-block pre { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.82rem; line-height: 1.7; }
+    .c-comment { color: #4a6a9a; }
+    .c-cmd     { color: var(--green); }
+    .c-flag    { color: #f5a623; }
+    .c-val     { color: #79b8ff; }
+    .c-dollar  { color: var(--muted); user-select: none; }
+
+    .copy-btn {
+      position: absolute; top: 0.75rem; right: 0.75rem;
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--muted); padding: 0.3rem 0.7rem; border-radius: 5px;
+      font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ── FEATURES ── */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.2rem; margin-top: 0;
+    }
+    .feature-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.4rem 1.5rem;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .feature-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .feature-icon { font-size: 1.5rem; margin-bottom: 0.7rem; }
+    .feature-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text); }
+    .feature-desc  { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── HOW IT WORKS ── */
+    .pipeline {
+      display: flex; flex-wrap: wrap; gap: 0; align-items: stretch;
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+      overflow: hidden;
+    }
+    .pipe-step {
+      flex: 1; min-width: 120px;
+      padding: 1.2rem 1rem; text-align: center;
+      border-right: 1px solid var(--border); position: relative;
+    }
+    .pipe-step:last-child { border-right: none; }
+    .pipe-step::after {
+      content: '›'; position: absolute; right: -8px; top: 50%;
+      transform: translateY(-50%); color: var(--accent2);
+      font-size: 1.2rem; z-index: 2;
+    }
+    .pipe-step:last-child::after { display: none; }
+    .pipe-icon { font-size: 1.3rem; margin-bottom: 0.4rem; }
+    .pipe-label { font-size: 0.72rem; font-weight: 600; color: var(--text); }
+    .pipe-time  { font-size: 0.68rem; color: var(--green); margin-top: 0.2rem; font-family: monospace; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border); background: var(--bg2);
+      padding: 2.5rem 2rem; text-align: center; color: var(--muted); font-size: 0.82rem;
+    }
+    footer .footer-logo { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 0.8rem; }
+    footer .footer-logo img { height: 24px; filter: brightness(0) invert(0.5); }
+    footer a { color: var(--accent2); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .stat { padding: 0.5rem 1.2rem; }
+      .nav-links { display: none; }
+      .pipe-step { min-width: 90px; }
+    }
+
+    /* ── TAB PANELS ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-brand" href="#">
+    <img src="srea-logo.png" alt="SreA Logo" />
+    <span>SreA</span>
+  </a>
+  <div class="nav-links">
+    <a href="#install">Install</a>
+    <a href="#features">Features</a>
+    <a href="https://github.com/sandeep27choudhary/sre-ai-platform-distribution" target="_blank">GitHub</a>
+  </div>
+  <a class="nav-cta" href="#install">Get Started</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="badge"><span class="badge-dot"></span> v1.1.0 — Now Available</div>
+  <img class="hero-logo" src="srea-logo.png" alt="SreA" />
+  <h1>Kubernetes SRE Assistant</h1>
+  <p class="hero-sub">
+    Deterministic root cause analysis, forensic investigation, and autonomous incident response — all running on your cluster, no cloud dependency.
+  </p>
+  <div class="hero-actions">
+    <a class="btn-primary" href="#install">Install in 60 seconds</a>
+    <a class="btn-ghost" href="https://github.com/sandeep27choudhary/sre-ai-platform-distribution" target="_blank">View on GitHub</a>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat"><div class="stat-value">&lt; 5s</div><div class="stat-label">Forensic RCA</div></div>
+  <div class="stat"><div class="stat-value">T0–T3</div><div class="stat-label">4-Tier Pipeline</div></div>
+  <div class="stat"><div class="stat-value">6 GB</div><div class="stat-label">Total RAM</div></div>
+  <div class="stat"><div class="stat-value">100%</div><div class="stat-label">Offline Capable</div></div>
+  <div class="stat"><div class="stat-value">7-Day</div><div class="stat-label">Free Trial</div></div>
+</div>
+
+<!-- INSTALL -->
+<section id="install">
+  <h2>Install</h2>
+  <p class="section-sub">One command. No source code required. Starts a 7-day free trial automatically.</p>
+
+  <div class="install-tabs">
+    <button class="tab active" id="tab-curl" onclick="switchTab('curl', this)">Bootstrap</button>
+    <button class="tab" id="tab-helm" onclick="switchTab('helm', this)">Helm Repo</button>
+    <button class="tab" id="tab-creds" onclick="switchTab('creds', this)">Get Credentials</button>
+    <button class="tab" id="tab-upgrade" onclick="switchTab('upgrade', this)">Upgrade / License</button>
+  </div>
+
+  <div id="panel-curl" class="tab-panel active">
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode('cmd-curl')">Copy</button>
+      <pre id="cmd-curl"><span class="c-comment"># One-line install — auto-generates all secrets, starts 7-day trial</span>
+<span class="c-dollar">$ </span><span class="c-cmd">curl</span> <span class="c-flag">-fsSL</span> <span class="c-val">https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh</span> <span class="c-cmd">| bash</span>
+
+<span class="c-comment"># With a license key (activates full plan immediately)</span>
+<span class="c-dollar">$ </span><span class="c-cmd">curl</span> <span class="c-flag">-fsSL</span> <span class="c-val">https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh</span> \
+    <span class="c-cmd">| bash -s --</span> <span class="c-flag">--license-key</span> <span class="c-val">'YOUR_LICENSE_KEY'</span></pre>
+    </div>
+  </div>
+
+  <div id="panel-helm" class="tab-panel">
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode('cmd-helm')">Copy</button>
+      <pre id="cmd-helm"><span class="c-comment"># Add the Helm repo</span>
+<span class="c-dollar">$ </span><span class="c-cmd">helm repo add</span> sre-ai <span class="c-val">https://sandeep27choudhary.github.io/sre-ai-platform-distribution</span>
+<span class="c-dollar">$ </span><span class="c-cmd">helm repo update</span>
+
+<span class="c-comment"># Install — passwords are auto-generated and stored in a K8s Secret</span>
+<span class="c-dollar">$ </span><span class="c-cmd">helm upgrade --install</span> sre-agent sre-ai/sre-ai-platform \
+    <span class="c-flag">-n</span> sre-ai <span class="c-flag">--create-namespace</span> \
+    <span class="c-flag">--set-string</span> <span class="c-val">license.trialStartEpoch="$(date +%s)"</span>
+
+<span class="c-comment"># Access the UI</span>
+<span class="c-dollar">$ </span><span class="c-cmd">kubectl port-forward</span> svc/sre-platform-ui <span class="c-val">3001:80</span> <span class="c-flag">-n</span> sre-ai</pre>
+    </div>
+  </div>
+
+  <div id="panel-creds" class="tab-panel">
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode('cmd-creds')">Copy</button>
+      <pre id="cmd-creds"><span class="c-comment"># Get the auto-generated admin password</span>
+<span class="c-dollar">$ </span><span class="c-cmd">kubectl get secret</span> sre-agent-sre-ai-platform-platform \
+    <span class="c-flag">-n</span> sre-ai \
+    <span class="c-flag">-o</span> <span class="c-val">jsonpath='{.data.SRE_ADMIN_PASSWORD}'</span> <span class="c-cmd">| base64 -d</span> && echo
+
+<span class="c-comment"># Get the Postgres password</span>
+<span class="c-dollar">$ </span><span class="c-cmd">kubectl get secret</span> sre-agent-sre-ai-platform-platform \
+    <span class="c-flag">-n</span> sre-ai \
+    <span class="c-flag">-o</span> <span class="c-val">jsonpath='{.data.POSTGRES_PASSWORD}'</span> <span class="c-cmd">| base64 -d</span> && echo
+
+<span class="c-comment"># Default admin email</span>
+<span class="c-dollar">$ </span><span class="c-cmd">echo</span> <span class="c-val">admin@sre.local</span>
+
+<span class="c-comment"># Secret name uses your Helm release name — check with:</span>
+<span class="c-dollar">$ </span><span class="c-cmd">helm list</span> <span class="c-flag">-n</span> sre-ai</pre>
+    </div>
+  </div>
+
+  <div id="panel-upgrade" class="tab-panel">
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode('cmd-upgrade')">Copy</button>
+      <pre id="cmd-upgrade"><span class="c-comment"># Upgrade to latest chart version (passwords preserved automatically)</span>
+<span class="c-dollar">$ </span><span class="c-cmd">helm repo update</span>
+<span class="c-dollar">$ </span><span class="c-cmd">helm upgrade</span> sre-agent sre-ai/sre-ai-platform \
+    <span class="c-flag">-n</span> sre-ai <span class="c-flag">--reuse-values</span>
+
+<span class="c-comment"># Apply a license key (no reinstall needed)</span>
+<span class="c-dollar">$ </span><span class="c-cmd">helm upgrade</span> sre-agent sre-ai/sre-ai-platform \
+    <span class="c-flag">-n</span> sre-ai \
+    <span class="c-flag">--set-string</span> <span class="c-val">license.key='YOUR_LICENSE_KEY'</span> \
+    <span class="c-flag">--reuse-values</span>
+
+<span class="c-comment"># Verify license status</span>
+<span class="c-dollar">$ </span><span class="c-cmd">kubectl port-forward</span> svc/api <span class="c-val">8000:8000</span> <span class="c-flag">-n</span> sre-ai &
+<span class="c-dollar">$ </span><span class="c-cmd">curl -s</span> http://localhost:8000/license</pre>
+    </div>
+  </div>
+</section>
+
+<!-- PIPELINE -->
+<section id="features" style="padding-top:0">
+  <h2>How It Works</h2>
+  <p class="section-sub">Every query flows through a deterministic 4-tier pipeline. LLM is called only when needed.</p>
+  <div class="pipeline">
+    <div class="pipe-step"><div class="pipe-icon">🔍</div><div class="pipe-label">NLU Parse</div><div class="pipe-time">deterministic</div></div>
+    <div class="pipe-step"><div class="pipe-icon">🎯</div><div class="pipe-label">Intent Route</div><div class="pipe-time">T0–T3 classify</div></div>
+    <div class="pipe-step"><div class="pipe-icon">📡</div><div class="pipe-label">MCP Cluster</div><div class="pipe-time">&lt; 200ms</div></div>
+    <div class="pipe-step"><div class="pipe-icon">🧩</div><div class="pipe-label">RCA Engine</div><div class="pipe-time">8 modules</div></div>
+    <div class="pipe-step"><div class="pipe-icon">🤖</div><div class="pipe-label">LLM Reason</div><div class="pipe-time">&lt; 5s total</div></div>
+    <div class="pipe-step"><div class="pipe-icon">📋</div><div class="pipe-label">Structured Response</div><div class="pipe-time">JSON + audit</div></div>
+  </div>
+
+  <br />
+
+  <!-- FEATURES GRID -->
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🏥</div>
+      <div class="feature-title">Forensic RCA</div>
+      <div class="feature-desc">8-module deterministic root cause analysis — timeline, blast radius, hypothesis validation, systemic weakness detection.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <div class="feature-title">100% Offline</div>
+      <div class="feature-desc">All inference runs on-cluster via Ollama. No external API calls. Air-gap ready. Your data never leaves your infra.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title">Sub-200ms T0 Queries</div>
+      <div class="feature-desc">Direct MCP lookups (pod status, health, events) return instantly — no LLM, no RAG, just deterministic K8s API calls.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💬</div>
+      <div class="feature-title">WhatsApp & Chat UI</div>
+      <div class="feature-desc">Query your cluster from WhatsApp Saved Messages or the built-in platform UI. Self-message bot pattern — no group exposure.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">Admin Dashboard</div>
+      <div class="feature-desc">User management, license status, WhatsApp gateway control, audit logs, and execution engine — all in one panel.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🪖</div>
+      <div class="feature-title">Lightweight</div>
+      <div class="feature-desc">Runs in 6 GB total RAM on a single-node cluster. No Kafka, no Elasticsearch, no external SaaS. Just Postgres + pgvector.</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <img src="srea-logo.png" alt="SreA" />
+    <strong>SreA — Kubernetes SRE Assistant</strong>
+  </div>
+  <p>
+    Helm chart · <a href="https://github.com/sandeep27choudhary/sre-ai-platform-distribution" target="_blank">GitHub</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/sandeep27choudhary/sre-ai-platform-distribution/blob/main/README.md" target="_blank">Docs</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/sandeep27choudhary/sre-ai-platform-distribution/blob/main/SECURITY.md" target="_blank">Security</a>
+  </p>
+  <p style="margin-top:0.6rem; font-size:0.75rem; color:#3d5070;">
+    © 2026 Sandeep Choudhary. SreA — your Kubernetes SRE Assistant, shipped as Helm.
+  </p>
+</footer>
+
+<script>
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function copyCode(id) {
+    const el = document.getElementById(id);
+    const text = el.innerText.replace(/^\$ /gm, '');
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = event.target;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>
