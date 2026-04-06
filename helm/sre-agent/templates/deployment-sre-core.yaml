@@ -152,6 +152,10 @@ spec:
             {{- end }}
             - name: LICENSE_TRIAL_DAYS
               value: {{ .Values.license.trialDays | quote }}
+            - name: AOE_ENABLED
+              value: {{ .Values.autoOps.enabled | quote }}
+            - name: AOE_URL
+              value: {{ printf "http://%s:8000" (.Values.autoOps.name | default "autoops") | quote }}
           resources:
             {{- toYaml .Values.sreCore.resources | nindent 12 }}
           {{- if .Values.sreCore.startupProbe }}

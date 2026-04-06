@@ -58,5 +58,6 @@ networkPolicies:
 
 config:
   jwtSecretKey: "CHANGEME-jwt-use-openssl-rand-hex-64"
+  sreAdminEmail: "admin@sre.local"
   sreAdminPassword: "CHANGEME-admin-password"
   postgresPassword: "CHANGEME-postgres-password"

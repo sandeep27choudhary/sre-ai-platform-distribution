@@ -1,19 +1,5 @@
-# Example overlay — pull first-party images from GHCR.
-# Copy this file and edit secrets; do not commit real passwords or license keys.
-#
-# Install (helm repo must be added first — see distribution README):
-#   helm upgrade --install sre-ai sre-ai/sre-ai-platform -n sre-ai --create-namespace \
-#     -f values-example.yaml \
-#     --set-string config.jwtSecretKey="$(openssl rand -hex 32)" \
-#     --set-string config.postgresPassword="$(openssl rand -hex 16)" \
-#     --set-string config.sreAdminPassword="$(openssl rand -base64 24)" \
-#     --set-string license.trialStartEpoch="$(date +%s)" \
-#     --set license.trialDays=7
-#
-# For production with strict license enforcement, add `-f examples/values-production.yaml`
-# or merge its settings into your own values file.
-#
-# Private GHCR: create pull secret, then set imagePullSecrets below.
+# Example overlay — GHCR images + default UI admin identity.
+# Login at http://localhost:3001/login: sreAdminEmail + sreAdminPassword (seeded on first API start).
 
 createNamespace: true
 
@@ -64,5 +50,6 @@ networkPolicies:
 
 config:
   jwtSecretKey: "CHANGEME-jwt-use-openssl-rand-hex-64"
-  sreAdminPassword: "CHANGEME-admin-password"
+  sreAdminEmail: "admin@sre.local"
+  sreAdminPassword: "changeme"
   postgresPassword: "CHANGEME-postgres-password"

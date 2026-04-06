@@ -1,9 +1,23 @@
-# SreA — Kubernetes SRE Assistant
+# SreA — Kubernetes SRE AI Platform
 
-**SreA** (SRE Assistant) is a self-hosted, air-gap-ready Kubernetes troubleshooting assistant.  
-Deterministic RCA, forensic investigation, and autonomous incident response — all running on your cluster.
+**SreA** is a self-hosted, production-grade SRE assistant for Kubernetes.  
+Deterministic RCA · Forensic investigation · Autonomous incident response · Local-first, offline-capable.
 
-Images are pulled from **GHCR** · Helm chart index is served from **GitHub Pages** on this repo.
+Images: **GHCR** · Helm chart: **GitHub Pages** on this repo.
+
+---
+
+## Install (one command)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash
+```
+
+That's it. The installer will:
+1. Clone this repo
+2. Install the Helm chart into your cluster (namespace `sre-ai`)
+3. Wait for all pods to be ready
+4. Run a post-install health check
 
 ---
 
@@ -17,36 +31,52 @@ Images are pulled from **GHCR** · Helm chart index is served from **GitHub Page
 
 ---
 
-## Install
+## Options
 
-### Option A — Bootstrap (one command, recommended)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash
-```
-
-With a license key (activates full plan, skips trial):
+### With a license key
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh \
   | bash -s -- --license-key 'YOUR_LICENSE_KEY'
 ```
 
-### Option B — Helm repo
+### Air-gap / minikube (images pre-loaded locally)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh \
+  | bash -s -- --offline
+```
+
+### Custom namespace or release name
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh \
+  | bash -s -- --namespace my-sre --release my-platform
+```
+
+### All flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--license-key KEY` | — | Activate full plan, skip trial |
+| `--namespace NS` | `sre-ai` | Kubernetes namespace |
+| `--release NAME` | `sre-agent` | Helm release name |
+| `--offline` | — | `imagePullPolicy: Never` (minikube / air-gap) |
+| `--no-check` | — | Skip post-install health check |
+
+---
+
+## Helm repo (Option B)
 
 ```bash
 helm repo add sre-ai https://sandeep27choudhary.github.io/sre-ai-platform-distribution
 helm repo update
-
-helm upgrade --install sre-agent sre-ai/sre-ai-platform \
-  -n sre-ai --create-namespace \
-  --set-string license.trialStartEpoch="$(date +%s)"
+helm upgrade --install sre-agent sre-ai/sre-ai-platform --namespace sre-ai --create-namespace --set-string license.trialStartEpoch="$(date +%s)"
 ```
 
-> **Passwords are auto-generated on first install** — no need to pass them.  
-> Helm generates a random `postgresPassword` (24 chars), `jwtSecretKey` (64 chars), and `sreAdminPassword` (20 chars) and stores them in a Kubernetes Secret. Values persist across upgrades.
+> The release name (`sre-agent` above) determines your secret name: `sre-agent-sre-ai-platform-platform`.
 
-### Option C — Clone and install locally
+## Clone and install locally (Option C)
 
 ```bash
 git clone --depth 1 https://github.com/sandeep27choudhary/sre-ai-platform-distribution.git
@@ -54,53 +84,58 @@ cd sre-ai-platform-distribution
 ./scripts/install.sh
 ```
 
+> **Passwords are auto-generated on first install.**  
+> Helm generates `postgresPassword` (24 chars), `jwtSecretKey` (64 chars), and `sreAdminPassword` (20 chars), stored in a Kubernetes Secret. All values persist across upgrades.
+
 ---
 
-## Get your credentials after install
+## After install
 
-Passwords are stored in a Kubernetes Secret. Retrieve them with:
+### Get your credentials
+
+First, find your release name:
 
 ```bash
-# Admin UI password
-kubectl get secret sre-agent-sre-ai-platform-platform \
-  -n sre-ai \
-  -o jsonpath='{.data.SRE_ADMIN_PASSWORD}' | base64 -d && echo
-
-# Postgres password
-kubectl get secret sre-agent-sre-ai-platform-platform \
-  -n sre-ai \
-  -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d && echo
+helm list -n sre-ai
 ```
 
-> **Note:** The secret name uses the Helm release name as a prefix.  
-> If you installed with a different release name, replace `sre-agent` with your release name.  
-> Check with: `helm list -n sre-ai`
+Then retrieve the admin password (replace `<release>` with your release name):
+
+```bash
+kubectl get secret <release>-sre-ai-platform-platform -n sre-ai -o jsonpath='{.data.SRE_ADMIN_PASSWORD}' | base64 -d && echo
+```
+
+Example — if your release is `sre-agent`:
+
+```bash
+kubectl get secret sre-agent-sre-ai-platform-platform -n sre-ai -o jsonpath='{.data.SRE_ADMIN_PASSWORD}' | base64 -d && echo
+```
+
+Example — if your release is `sre-ai-platform` (Helm repo default):
+
+```bash
+kubectl get secret sre-ai-platform-sre-ai-platform-platform -n sre-ai -o jsonpath='{.data.SRE_ADMIN_PASSWORD}' | base64 -d && echo
+```
 
 **Default admin email:** `admin@sre.local`
 
----
-
-## Access the UI
+### Access the UI
 
 ```bash
 kubectl port-forward svc/sre-platform-ui 3001:80 -n sre-ai
 ```
 
-Open **http://localhost:3001** — log in with `admin@sre.local` and the password retrieved above.
+Open **http://localhost:3001** and log in with `admin@sre.local`.
 
----
+### Run the health check
 
-## Verify the install
+The health check runs automatically after install. You can also run it any time:
 
 ```bash
-# All pods should be Running
-kubectl get pods -n sre-ai
-
-# API health + license status
-kubectl port-forward svc/api 8000:8000 -n sre-ai &
-curl -s http://localhost:8000/health | python3 -m json.tool
-curl -s http://localhost:8000/license | python3 -m json.tool
+./scripts/post-install-check.sh
 ```
+
+Checks: pod readiness · API health · database · login · Ollama models · agent query · platform UI.
 
 ---
 
@@ -111,23 +146,17 @@ helm repo update
 helm upgrade sre-agent sre-ai/sre-ai-platform -n sre-ai --reuse-values
 ```
 
-Passwords and secrets are preserved automatically across upgrades.
+Secrets and passwords are preserved automatically.
 
 ---
 
-## Apply a license key
+## Apply a license key after install
 
 ```bash
 helm upgrade sre-agent sre-ai/sre-ai-platform \
-  -n sre-ai \
+  --namespace sre-ai \
   --set-string license.key='YOUR_LICENSE_KEY' \
   --reuse-values
-```
-
-Verify:
-
-```bash
-curl -s http://localhost:8000/license | python3 -m json.tool
 ```
 
 ---
@@ -148,11 +177,27 @@ All images are published to GHCR under `ghcr.io/sandeep27choudhary/`:
 
 ## Security
 
-- Never commit license keys or RSA private keys to Git.
-- Admin credentials are stored in Kubernetes Secrets — use RBAC to restrict access.
+- Admin credentials are stored in Kubernetes Secrets — restrict access with RBAC.
 - All inference runs on-cluster via Ollama — no data leaves your cluster.
+- License keys and RSA private keys must never be committed to Git.
 
 ---
+
+## Troubleshooting
+
+```bash
+# Check pod status
+kubectl get pods -n sre-ai
+
+# API logs
+kubectl logs -n sre-ai deploy/api --tail=50
+
+# Worker logs
+kubectl logs -n sre-ai deploy/worker --tail=30
+
+# Re-run health check
+./scripts/post-install-check.sh --namespace sre-ai --release sre-agent
+```
 
 ## Support
 
