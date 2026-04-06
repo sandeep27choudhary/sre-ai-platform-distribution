@@ -28,7 +28,7 @@ sreCore:
   replicas: 1
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-api
-    tag: v1.1.2
+    tag: v1.1.4
     pullPolicy: IfNotPresent  # minikube: use -f values-dev.yaml for local image names + Never
   serviceAccountName: mcp-readonly-sa
   resources:
@@ -126,7 +126,7 @@ sreRag:
     name: worker
     image:
       repository: ghcr.io/sandeep27choudhary/sre-agent-worker
-      tag: v1.1.2
+      tag: v1.1.4
       pullPolicy: IfNotPresent
     resources:
       requests: { cpu: 200m, memory: 128Mi }
@@ -157,7 +157,7 @@ srePlatformUi:
   replicas: 1
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-platform-ui
-    tag: v1.1.2
+    tag: v1.1.4
     pullPolicy: IfNotPresent
   resources:
     requests: { cpu: 100m, memory: 128Mi }
@@ -214,7 +214,7 @@ llmGateway:
   enabled: true
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-llm-gateway
-    tag: v1.1.2
+    tag: v1.1.4
     pullPolicy: IfNotPresent
   resources:
     requests: { cpu: 50m, memory: 64Mi }
@@ -341,11 +341,11 @@ archive:
 # AutoOps Engine — Autonomous incident response and remediation
 # -----------------------------------------------------------------------------
 autoOps:
-  enabled: true
+  enabled: false  # Set to true after making ghcr.io/sandeep27choudhary/sre-agent-autoops public
   name: autoops
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-autoops
-    tag: v1.1.2
+    tag: v1.1.4
     pullPolicy: IfNotPresent
   # Deployment stage controls autonomy level
   # shadow: observe only, no actions taken

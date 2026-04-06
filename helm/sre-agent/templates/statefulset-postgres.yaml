@@ -31,11 +31,14 @@ spec:
             - containerPort: 5432
           env:
             - name: POSTGRES_USER
-              value: {{ .Values.sreRag.postgres.auth.user | quote }}
+              value: {{ .Values.config.postgresUser | quote }}
             - name: POSTGRES_PASSWORD
-              value: {{ .Values.sreRag.postgres.auth.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.existingPostgresSecret | default (printf "%s-platform" (include "sre-agent.fullname" .)) }}
+                  key: POSTGRES_PASSWORD
             - name: POSTGRES_DB
-              value: {{ .Values.sreRag.postgres.auth.database | quote }}
+              value: {{ .Values.config.postgresDb | quote }}
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
@@ -46,9 +49,9 @@ spec:
               command:
                 - pg_isready
                 - "-U"
-                - {{ .Values.sreRag.postgres.auth.user | quote }}
+                - {{ .Values.config.postgresUser | quote }}
                 - "-d"
-                - {{ .Values.sreRag.postgres.auth.database | quote }}
+                - {{ .Values.config.postgresDb | quote }}
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
@@ -56,9 +59,9 @@ spec:
               command:
                 - pg_isready
                 - "-U"
-                - {{ .Values.sreRag.postgres.auth.user | quote }}
+                - {{ .Values.config.postgresUser | quote }}
                 - "-d"
-                - {{ .Values.sreRag.postgres.auth.database | quote }}
+                - {{ .Values.config.postgresDb | quote }}
             initialDelaySeconds: 15
             periodSeconds: 10
       volumes:
