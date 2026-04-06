@@ -22,6 +22,24 @@ spec:
     spec:
 {{- include "sre-agent.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ .Values.rbac.legacyServiceAccount }}
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Postgres at $PGHOST:$PGPORT..."
+              until nc -z "$PGHOST" "$PGPORT"; do
+                echo "  postgres not ready, retrying in 2s..."
+                sleep 2
+              done
+              echo "Postgres is up."
+          env:
+            - name: PGHOST
+              value: {{ .Values.config.postgresHost | quote }}
+            - name: PGPORT
+              value: {{ .Values.config.postgresPort | quote }}
       containers:
         - name: worker
           image: "{{ .Values.sreRag.worker.image.repository }}:{{ .Values.sreRag.worker.image.tag }}"
@@ -34,7 +52,10 @@ spec:
             - name: POSTGRES_USER
               value: {{ .Values.config.postgresUser | quote }}
             - name: POSTGRES_PASSWORD
-              value: {{ .Values.config.postgresPassword | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.existingPostgresSecret | default (printf "%s-platform" (include "sre-agent.fullname" .)) }}
+                  key: POSTGRES_PASSWORD
             - name: POSTGRES_DB
               value: {{ .Values.config.postgresDb | quote }}
             - name: REDIS_HOST

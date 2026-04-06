@@ -30,10 +30,18 @@ Access the platform:
     Open http://localhost:3001
     Use port 80 on the Service (not 3000). The container listens on 3000; Service maps 80 -> 3000.
 
-Default credentials:
-  Email:    {{ .Values.config.sreAdminEmail }}
-  Password: {{ .Values.config.sreAdminPassword }}
-  ** CHANGE THESE IN PRODUCTION **
+Admin credentials:
+  Email: {{ .Values.config.sreAdminEmail }}
+
+  Retrieve the auto-generated password:
+    kubectl get secret {{ include "sre-agent.fullname" . }}-platform \
+      -n {{ .Release.Namespace }} \
+      -o jsonpath='{.data.SRE_ADMIN_PASSWORD}' | base64 -d && echo
+
+  Retrieve the Postgres password:
+    kubectl get secret {{ include "sre-agent.fullname" . }}-platform \
+      -n {{ .Release.Namespace }} \
+      -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d && echo
 
 License:
 {{- if .Values.license.key }}

@@ -23,6 +23,24 @@ spec:
 {{- include "sre-agent.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ .Values.sreCore.serviceAccountName }}
       automountServiceAccountToken: true
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Postgres at $PGHOST:$PGPORT..."
+              until nc -z "$PGHOST" "$PGPORT"; do
+                echo "  postgres not ready, retrying in 2s..."
+                sleep 2
+              done
+              echo "Postgres is up."
+          env:
+            - name: PGHOST
+              value: {{ .Values.config.postgresHost | quote }}
+            - name: PGPORT
+              value: {{ .Values.config.postgresPort | quote }}
       containers:
         - name: api
           image: "{{ .Values.sreCore.image.repository }}:{{ .Values.sreCore.image.tag }}"

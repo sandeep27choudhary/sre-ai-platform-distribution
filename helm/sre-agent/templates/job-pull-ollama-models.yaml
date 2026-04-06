@@ -1,0 +1,71 @@
+{{- if .Values.sreLlm.enabled }}
+{{- if .Values.sreLlm.pullModels.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "sre-agent.fullname" . }}-pull-models
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    {{- include "sre-agent.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: pull-ollama-models
+        {{- include "sre-agent.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: pull-models
+          image: curlimages/curl:8.6.0
+          command:
+            - sh
+            - -c
+            - |
+              OLLAMA_HOST="{{ .Values.sreLlm.pullModels.ollamaHost | default "http://ollama:11434" }}"
+              EMBED_MODEL="{{ .Values.llmGateway.ollama.embedModel | default "nomic-embed-text" }}"
+              LLM_MODEL="{{ .Values.llmGateway.ollama.model | default "llama3.2" }}"
+
+              wait_for_ollama() {
+                echo "Waiting for Ollama at $OLLAMA_HOST ..."
+                for i in $(seq 1 30); do
+                  if curl -sf "$OLLAMA_HOST/api/tags" > /dev/null 2>&1; then
+                    echo "Ollama is ready."
+                    return 0
+                  fi
+                  echo "  attempt $i/30 — not ready yet, sleeping 5s..."
+                  sleep 5
+                done
+                echo "ERROR: Ollama did not become ready in time." >&2
+                exit 1
+              }
+
+              pull_model() {
+                MODEL=$1
+                echo "Pulling model: $MODEL ..."
+                curl -sf --max-time 300 "$OLLAMA_HOST/api/pull" \
+                  -H "Content-Type: application/json" \
+                  -d "{\"name\":\"$MODEL\"}" \
+                  | tail -1
+                echo "Done: $MODEL"
+              }
+
+              wait_for_ollama
+              pull_model "$EMBED_MODEL"
+              pull_model "$LLM_MODEL"
+              echo "All models pulled successfully."
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+{{- end }}
+{{- end }}

@@ -1,130 +1,160 @@
-# SRE AI Platform — install guide (public)
+# SreA — Kubernetes SRE Assistant
 
-This repository contains **documentation, the packaged Helm chart source (`helm/sre-agent`)**, and helper scripts to install the **Kubernetes Forensic SRE Assistant** on your cluster. Application **source code** lives in the upstream repo; images are pulled from **GitHub Container Registry (GHCR)** and the **Helm chart index** is served from **GitHub Pages** on this repository.
+**SreA** (SRE Assistant) is a self-hosted, air-gap-ready Kubernetes troubleshooting assistant.  
+Deterministic RCA, forensic investigation, and autonomous incident response — all running on your cluster.
 
-**Upstream product repository:** [rag-k8s-llm](https://github.com/sandeep27choudhary/rag-k8s-llm) (full source and docs; may be private — this repo stays public for installs).
+Images are pulled from **GHCR** · Helm chart index is served from **GitHub Pages** on this repo.
 
 ---
 
 ## Prerequisites
 
-- Kubernetes **1.25+**
-- **kubectl** configured for your cluster
-- **Helm 3**
-- Optional: **minikube** or **kind** for local testing
+| Requirement | Version |
+|---|---|
+| Kubernetes | 1.25+ |
+| Helm | 3.x |
+| kubectl | configured for your cluster |
 
 ---
 
-## Option A — Helm repository (recommended, no Git clone of product source)
+## Install
 
-When the vendor publishes the chart to GitHub Pages (or another HTTPS Helm repo), use:
+### Option A — Bootstrap (one command, recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash
+```
+
+With a license key (activates full plan, skips trial):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh \
+  | bash -s -- --license-key 'YOUR_LICENSE_KEY'
+```
+
+### Option B — Helm repo
 
 ```bash
 helm repo add sre-ai https://sandeep27choudhary.github.io/sre-ai-platform-distribution
 helm repo update
-helm install sre-ai sre-ai/sre-ai-platform -n sre-ai --create-namespace \
-  -f examples/values-example.yaml \
-  --set-string config.jwtSecretKey="$(openssl rand -hex 32)" \
-  --set-string config.postgresPassword="$(openssl rand -hex 16)" \
-  --set-string config.sreAdminPassword="$(openssl rand -base64 24)" \
-  --set-string license.trialStartEpoch="$(date +%s)" \
-  --set license.trialDays=7
+
+helm upgrade --install sre-agent sre-ai/sre-ai-platform \
+  -n sre-ai --create-namespace \
+  --set-string license.trialStartEpoch="$(date +%s)"
 ```
 
-Replace `examples/values-example.yaml` with your path after copying it locally. For paid production installs, add `-f examples/values-production.yaml` (or merge its settings) and set `license.key`.  
-Edit `license.key` and `license.publicKey` in values when your vendor supplies them (see **License** below).
+> **Passwords are auto-generated on first install** — no need to pass them.  
+> Helm generates a random `postgresPassword` (24 chars), `jwtSecretKey` (64 chars), and `sreAdminPassword` (20 chars) and stores them in a Kubernetes Secret. Values persist across upgrades.
 
-If the Helm repo URL differs, check with your vendor.
-
----
-
-## Option B — Bootstrap script (clone this repo, install from bundled chart)
-
-The bootstrap script clones **this** repository (which contains **`helm/sre-agent` only** as the installable chart) and runs `./scripts/install.sh`.
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash -s --
-```
-
-With a license key:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash -s -- --license-key 'YOUR_LICENSE_KEY'
-```
-
-With extra values (paths are relative to the cloned repo):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash -s -- \
-  --license-key 'YOUR_LICENSE_KEY' --values examples/values-production.yaml
-```
-
-**Override clone URL or branch** (forks or testing):
-
-```bash
-export SRE_BOOTSTRAP_REPO="https://github.com/sandeep27choudhary/sre-ai-platform-distribution.git"
-export SRE_BOOTSTRAP_BRANCH="main"
-curl -fsSL https://raw.githubusercontent.com/sandeep27choudhary/sre-ai-platform-distribution/main/scripts/bootstrap-install.sh | bash -s --
-```
-
----
-
-## Option C — Clone this repo and run the installer locally
+### Option C — Clone and install locally
 
 ```bash
 git clone --depth 1 https://github.com/sandeep27choudhary/sre-ai-platform-distribution.git
 cd sre-ai-platform-distribution
-./scripts/install.sh --license-key 'YOUR_LICENSE_KEY'
+./scripts/install.sh
 ```
-
-**Full product source** (build images from source, develop features) is in the private upstream [rag-k8s-llm](https://github.com/sandeep27choudhary/rag-k8s-llm) repository — not required for a normal GHCR-based install from this chart.
 
 ---
 
-## License keys (RS256)
+## Get your credentials after install
 
-- Your vendor sends you a **single line** `LICENSE_KEY=...` (JWT). **Do not** share it publicly.
-- **Do not** commit license keys or RSA **private** keys to Git.
-- You may receive an **RSA public** PEM to place under `license.publicKey` in your values file (or it may be baked into the vendor’s API image).
-
-**Apply a license after install:**
+Passwords are stored in a Kubernetes Secret. Retrieve them with:
 
 ```bash
-helm upgrade sre-ai sre-ai/sre-ai-platform -n sre-ai \
+# Admin UI password
+kubectl get secret sre-agent-sre-ai-platform-platform \
+  -n sre-ai \
+  -o jsonpath='{.data.SRE_ADMIN_PASSWORD}' | base64 -d && echo
+
+# Postgres password
+kubectl get secret sre-agent-sre-ai-platform-platform \
+  -n sre-ai \
+  -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d && echo
+```
+
+> **Note:** The secret name uses the Helm release name as a prefix.  
+> If you installed with a different release name, replace `sre-agent` with your release name.  
+> Check with: `helm list -n sre-ai`
+
+**Default admin email:** `admin@sre.local`
+
+---
+
+## Access the UI
+
+```bash
+kubectl port-forward svc/sre-platform-ui 3001:80 -n sre-ai
+```
+
+Open **http://localhost:3001** — log in with `admin@sre.local` and the password retrieved above.
+
+---
+
+## Verify the install
+
+```bash
+# All pods should be Running
+kubectl get pods -n sre-ai
+
+# API health + license status
+kubectl port-forward svc/api 8000:8000 -n sre-ai &
+curl -s http://localhost:8000/health | python3 -m json.tool
+curl -s http://localhost:8000/license | python3 -m json.tool
+```
+
+---
+
+## Upgrade
+
+```bash
+helm repo update
+helm upgrade sre-agent sre-ai/sre-ai-platform -n sre-ai --reuse-values
+```
+
+Passwords and secrets are preserved automatically across upgrades.
+
+---
+
+## Apply a license key
+
+```bash
+helm upgrade sre-agent sre-ai/sre-ai-platform \
+  -n sre-ai \
   --set-string license.key='YOUR_LICENSE_KEY' \
   --reuse-values
 ```
 
-(Adjust release name and repo if your install differs.)
-
----
-
-## Verify
+Verify:
 
 ```bash
-kubectl get pods -n sre-ai
-kubectl port-forward -n sre-ai svc/sre-platform-ui 3001:80
-kubectl port-forward -n sre-ai svc/api 8000:8000
-curl -sS http://localhost:8000/license
+curl -s http://localhost:8000/license | python3 -m json.tool
 ```
-
-Open `http://localhost:3001` for the platform UI. Default admin credentials must be set in your values (see `examples/values-example.yaml`); do **not** use `CHANGEME` in production.
 
 ---
 
 ## Images
 
-First-party images are published to **GHCR** under `ghcr.io/sandeep27choudhary/sre-agent-*` (see `examples/values-example.yaml`). If pulls fail with `unauthorized`, the packages may be private — ask your vendor for pull credentials or for packages to be public.
+All images are published to GHCR under `ghcr.io/sandeep27choudhary/`:
+
+| Image | Purpose |
+|---|---|
+| `sre-agent-api` | Core API + RCA engine |
+| `sre-agent-worker` | Log ingestion + embedding |
+| `sre-agent-llm-gateway` | Provider-agnostic LLM proxy |
+| `sre-agent-platform-ui` | React/Next.js platform UI |
+| `sre-agent-whatsapp` | WhatsApp gateway |
 
 ---
 
 ## Security
 
-- Never commit **license keys**, **RSA private keys**, or **HMAC signing secrets**.
-- See the vendor’s **secure delivery** documentation in the upstream repo (`docs/SECURE_CUSTOMER_DELIVERY.md`).
+- Never commit license keys or RSA private keys to Git.
+- Admin credentials are stored in Kubernetes Secrets — use RBAC to restrict access.
+- All inference runs on-cluster via Ollama — no data leaves your cluster.
 
 ---
 
 ## Support
 
-Issues for **installing from this guide** may be opened in this repository. **Product bugs** and **feature requests** belong to the upstream [rag-k8s-llm](https://github.com/sandeep27choudhary/rag-k8s-llm) repository.
+- Install issues → open an issue in this repository
+- Product bugs / features → [rag-k8s-llm](https://github.com/sandeep27choudhary/rag-k8s-llm)

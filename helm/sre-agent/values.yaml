@@ -28,7 +28,7 @@ sreCore:
   replicas: 1
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-api
-    tag: v1.1.0
+    tag: v1.1.1
     pullPolicy: IfNotPresent  # minikube: use -f values-dev.yaml for local image names + Never
   serviceAccountName: mcp-readonly-sa
   resources:
@@ -95,6 +95,10 @@ sreLlm:
     minReplicas: 1
     maxReplicas: 3
     targetCPUUtilizationPercentage: 70
+  # Auto-pull required models on post-install / post-upgrade
+  pullModels:
+    enabled: true
+    ollamaHost: "http://ollama:11434"
 
 # -----------------------------------------------------------------------------
 # sre-rag: Knowledge base – Postgres (pgvector) + Worker
@@ -241,7 +245,7 @@ config:
   postgresHost: postgres
   postgresPort: "5432"
   postgresUser: rag
-  postgresPassword: rag
+  postgresPassword: ""   # leave empty — Helm generates a 24-char password on first install
   postgresDb: rag
   redisHost: redis
   redisPort: "6379"
@@ -250,12 +254,12 @@ config:
   llmModel: "llama3.2"
   mcpActionsEnabled: "false"
   # JWT Authentication (SRE Platform UI)
-  jwtSecretKey: "change-me-in-production-use-openssl-rand-hex-64"
+  jwtSecretKey: ""       # leave empty — Helm generates a 64-char secret on first install
   jwtAccessTokenExpireMinutes: "60"
   jwtRefreshTokenExpireMinutes: "10080"
   # Admin seed (first-boot user)
   sreAdminEmail: "admin@sre.local"
-  sreAdminPassword: "changeme"
+  sreAdminPassword: ""   # leave empty — Helm generates a 20-char password on first install
   # Use existing secret for Postgres password (optional)
   existingPostgresSecret: ""
 
