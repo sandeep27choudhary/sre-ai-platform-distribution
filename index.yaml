@@ -2,8 +2,36 @@ apiVersion: v1
 entries:
   sre-ai-platform:
   - apiVersion: v2
+    appVersion: 1.1.5
+    created: "2026-04-06T11:44:06.931808267Z"
+    description: Production-grade Kubernetes SRE AI Platform. Deterministic RCA engine,
+      forensic investigation, action policy engine, admin governance, and license-controlled
+      feature access. Local-first, offline-capable.
+    digest: b9cf42309e9d2c23d326333fe36b0cfb4f3ff4b4ccf8d594b9527a5c46f60025
+    home: https://github.com/sandeep27choudhary/rag-k8s-llm
+    keywords:
+    - sre
+    - kubernetes
+    - troubleshooting
+    - rag
+    - rca
+    - incident-response
+    - forensic
+    - ollama
+    - license
+    kubeVersion: '>=1.25.0'
+    maintainers:
+    - name: Sandeep Choudhary
+    name: sre-ai-platform
+    sources:
+    - https://github.com/sandeep27choudhary/rag-k8s-llm
+    type: application
+    urls:
+    - https://sandeep27choudhary.github.io/sre-ai-platform-distribution/sre-ai-platform-2.5.1.tgz
+    version: 2.5.1
+  - apiVersion: v2
     appVersion: 1.1.4
-    created: "2026-04-06T07:00:30.196505486Z"
+    created: "2026-04-06T11:44:06.930141384Z"
     description: Production-grade Kubernetes SRE AI Platform. Deterministic RCA engine,
       forensic investigation, action policy engine, admin governance, and license-controlled
       feature access. Local-first, offline-capable.
@@ -31,7 +59,7 @@ entries:
     version: 2.5.0
   - apiVersion: v2
     appVersion: 1.1.2
-    created: "2026-04-06T07:00:30.194884136Z"
+    created: "2026-04-06T11:44:06.928472911Z"
     description: Production-grade Kubernetes SRE AI Platform. Deterministic RCA engine,
       forensic investigation, action policy engine, admin governance, and license-controlled
       feature access. Local-first, offline-capable.
@@ -59,7 +87,7 @@ entries:
     version: 2.3.0
   - apiVersion: v2
     appVersion: 1.1.1
-    created: "2026-04-06T07:00:30.193233602Z"
+    created: "2026-04-06T11:44:06.925486369Z"
     description: Production-grade Kubernetes SRE AI Platform. Deterministic RCA engine,
       forensic investigation, action policy engine, admin governance, and license-controlled
       feature access. Local-first, offline-capable.
@@ -87,7 +115,7 @@ entries:
     version: 2.2.0
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-04-06T07:00:30.191640043Z"
+    created: "2026-04-06T11:44:06.923973898Z"
     description: Production-grade Kubernetes SRE AI Platform. Deterministic RCA engine,
       forensic investigation, action policy engine, admin governance, and license-controlled
       feature access. Local-first, offline-capable.
@@ -115,7 +143,7 @@ entries:
     version: 2.1.0
   - apiVersion: v2
     appVersion: 2.0.0
-    created: "2026-04-06T07:00:30.189324981Z"
+    created: "2026-04-06T11:44:06.922503066Z"
     description: Production-grade Kubernetes SRE AI Platform. Deterministic RCA engine,
       forensic investigation, action policy engine, admin governance, and license-controlled
       feature access. Local-first, offline-capable.
@@ -141,4 +169,4 @@ entries:
     urls:
     - https://sandeep27choudhary.github.io/sre-ai-platform-distribution/sre-ai-platform-2.0.0.tgz
     version: 2.0.0
-generated: "2026-04-06T07:00:30.187518516Z"
+generated: "2026-04-06T11:44:06.920829415Z"
