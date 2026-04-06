@@ -12,6 +12,7 @@ on:
     paths:
       - "helm/sre-agent/**"
       - "scripts/package-helm.sh"
+      - "pages/**"
       - ".github/workflows/publish-helm-pages.yml"
   workflow_dispatch:
 
@@ -68,6 +69,10 @@ jobs:
           else
             helm repo index . --url "${HELM_REPO_URL}"
           fi
+
+          # Landing page at site root (otherwise / returns 404; only index.yaml existed)
+          cp -R "${GITHUB_WORKSPACE}/pages/." "${OUT}/"
+
           ls -la
 
       - name: Deploy to gh-pages
