@@ -28,7 +28,7 @@ sreCore:
   replicas: 1
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-api
-    tag: v1.1.1
+    tag: v1.1.2
     pullPolicy: IfNotPresent  # minikube: use -f values-dev.yaml for local image names + Never
   serviceAccountName: mcp-readonly-sa
   resources:
@@ -126,7 +126,7 @@ sreRag:
     name: worker
     image:
       repository: ghcr.io/sandeep27choudhary/sre-agent-worker
-      tag: v1.1.0
+      tag: v1.1.2
       pullPolicy: IfNotPresent
     resources:
       requests: { cpu: 200m, memory: 128Mi }
@@ -157,7 +157,7 @@ srePlatformUi:
   replicas: 1
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-platform-ui
-    tag: v1.1.0
+    tag: v1.1.2
     pullPolicy: IfNotPresent
   resources:
     requests: { cpu: 100m, memory: 128Mi }
@@ -214,7 +214,7 @@ llmGateway:
   enabled: true
   image:
     repository: ghcr.io/sandeep27choudhary/sre-agent-llm-gateway
-    tag: v1.1.0
+    tag: v1.1.2
     pullPolicy: IfNotPresent
   resources:
     requests: { cpu: 50m, memory: 64Mi }
@@ -336,6 +336,110 @@ archive:
   accessKey: minioadmin
   secretKey: minioadmin
   retentionDays: 15           # lifecycle policy on bucket
+
+# -----------------------------------------------------------------------------
+# AutoOps Engine — Autonomous incident response and remediation
+# -----------------------------------------------------------------------------
+autoOps:
+  enabled: true
+  name: autoops
+  image:
+    repository: ghcr.io/sandeep27choudhary/sre-agent-autoops
+    tag: v1.1.2
+    pullPolicy: IfNotPresent
+  # Deployment stage controls autonomy level
+  # shadow: observe only, no actions taken
+  # suggestion: surface suggestions via API, no auto-execution
+  # limited_auto: auto-remediate low blast-radius issues only
+  # full_auto: full autonomous remediation per rules
+  deploymentStage: "shadow"
+  environment: "development"    # development | staging | production
+  circuitBreakerMaxFailures: 3
+  rateLimitActionsPerHour: 10
+  correlationWindowSeconds: 120
+  approvalWebhookUrl: ""        # optional Slack/webhook URL for approval notifications
+  whatsappAlertJids: ""         # optional comma-separated WhatsApp JIDs
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 256Mi }
+  # Decision rules — mounted as /app/config/rules.yaml
+  # Edit here to customize auto-remediation policy without rebuilding the image
+  rulesYaml: |
+    rules:
+      - id: crash_loop_low_blast_high_conf
+        issue_type: crash_loop
+        severity: [high, critical]
+        blast_radius: [low]
+        min_confidence: 0.75
+        decision: auto_remediate
+        action: restart_pod
+        description: "High confidence crash loop on single pod — safe to auto-restart"
+      - id: crash_loop_medium_blast
+        issue_type: crash_loop
+        severity: [high, critical]
+        blast_radius: [medium]
+        min_confidence: 0.80
+        decision: suggest
+        action: rollout_restart
+        description: "Crash loop affecting multiple pods — recommend rollout restart"
+      - id: crash_loop_medium_severity
+        issue_type: crash_loop
+        severity: [medium]
+        blast_radius: [low, medium]
+        min_confidence: 0.70
+        decision: suggest
+        action: restart_pod
+        description: "Medium severity crash loop — suggest restart"
+      - id: image_pull_ignore
+        issue_type: image_pull_failure
+        severity: [low, medium, high, critical]
+        blast_radius: [low, medium, high]
+        min_confidence: 0.0
+        decision: ignore
+        action: ""
+        description: "Image pull failures require human intervention"
+      - id: config_missing_ignore
+        issue_type: config_missing
+        severity: [low, medium, high, critical]
+        blast_radius: [low, medium, high]
+        min_confidence: 0.0
+        decision: ignore
+        action: ""
+        description: "Config/secret missing — requires human intervention"
+      - id: resource_exhaustion_scale
+        issue_type: resource_exhaustion
+        severity: [high, critical]
+        blast_radius: [low, medium]
+        min_confidence: 0.75
+        decision: suggest
+        action: scale_deployment
+        description: "Resource exhaustion — suggest scaling"
+      - id: unknown_suggest
+        issue_type: unknown
+        severity: [high, critical]
+        blast_radius: [low, medium, high]
+        min_confidence: 0.0
+        decision: suggest
+        action: ""
+        description: "Unknown high severity — escalate for human review"
+      - id: default_ignore
+        issue_type: "*"
+        severity: [low, medium]
+        blast_radius: [low, medium, high]
+        min_confidence: 0.0
+        decision: ignore
+        action: ""
+        description: "Default: ignore low/medium unknown issues"
+    environments:
+      production:
+        override_auto_remediate_to: suggest
+        require_approval_for: [rollout_restart, scale_deployment]
+      staging:
+        override_auto_remediate_to: auto_remediate
+        require_approval_for: []
+      development:
+        override_auto_remediate_to: auto_remediate
+        require_approval_for: []
 
 # -----------------------------------------------------------------------------
 # MinIO — S3-compatible object storage for RCA archive

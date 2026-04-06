@@ -1,0 +1,106 @@
+{{- if .Values.autoOps.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.autoOps.name }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.autoOps.name }}
+    app.kubernetes.io/component: autoops
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.autoOps.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.autoOps.name }}
+        app.kubernetes.io/component: autoops
+        {{- include "sre-agent.labels" . | nindent 8 }}
+    spec:
+{{- include "sre-agent.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ .Values.rbac.legacyServiceAccount }}
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Postgres at $PGHOST:$PGPORT..."
+              until nc -z "$PGHOST" "$PGPORT"; do
+                echo "  postgres not ready, retrying in 2s..."
+                sleep 2
+              done
+              echo "Postgres is up."
+          env:
+            - name: PGHOST
+              value: {{ .Values.config.postgresHost | quote }}
+            - name: PGPORT
+              value: {{ .Values.config.postgresPort | quote }}
+      containers:
+        - name: autoops
+          image: "{{ .Values.autoOps.image.repository }}:{{ .Values.autoOps.image.tag }}"
+          imagePullPolicy: {{ if .Values.offlineMode }}Never{{ else }}{{ .Values.autoOps.image.pullPolicy }}{{ end }}
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: AOE_SRE_API_URL
+              value: {{ printf "http://%s:8000" .Values.sreCore.name | quote }}
+            - name: AOE_POSTGRES_DSN
+              value: {{ printf "postgresql://%s@%s:%s/%s"
+                .Values.config.postgresUser
+                .Values.config.postgresHost
+                .Values.config.postgresPort
+                .Values.config.postgresDb | quote }}
+            - name: AOE_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.existingPostgresSecret | default (printf "%s-platform" (include "sre-agent.fullname" .)) }}
+                  key: POSTGRES_PASSWORD
+            - name: AOE_DEPLOYMENT_STAGE
+              value: {{ .Values.autoOps.deploymentStage | quote }}
+            - name: AOE_ENVIRONMENT
+              value: {{ .Values.autoOps.environment | quote }}
+            - name: AOE_RULES_PATH
+              value: "/app/config/rules.yaml"
+            - name: AOE_CIRCUIT_BREAKER_MAX_FAILURES
+              value: {{ .Values.autoOps.circuitBreakerMaxFailures | quote }}
+            - name: AOE_RATE_LIMIT_ACTIONS_PER_HOUR
+              value: {{ .Values.autoOps.rateLimitActionsPerHour | quote }}
+            - name: AOE_CORRELATION_WINDOW_SECONDS
+              value: {{ .Values.autoOps.correlationWindowSeconds | quote }}
+            {{- if .Values.autoOps.approvalWebhookUrl }}
+            - name: AOE_APPROVAL_WEBHOOK_URL
+              value: {{ .Values.autoOps.approvalWebhookUrl | quote }}
+            {{- end }}
+            {{- if .Values.autoOps.whatsappAlertJids }}
+            - name: AOE_WHATSAPP_ALERT_JIDS
+              value: {{ .Values.autoOps.whatsappAlertJids | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: rules
+              mountPath: /app/config
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.autoOps.resources | nindent 12 }}
+      volumes:
+        - name: rules
+          configMap:
+            name: {{ include "sre-agent.fullname" . }}-autoops-rules
+{{- end }}

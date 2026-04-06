@@ -1,0 +1,18 @@
+{{- if .Values.autoOps.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.autoOps.name }}
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.autoOps.name }}
+    app.kubernetes.io/component: autoops
+    {{- include "sre-agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.autoOps.name }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+{{- end }}

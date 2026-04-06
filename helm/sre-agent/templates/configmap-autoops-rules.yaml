@@ -1,0 +1,13 @@
+{{- if .Values.autoOps.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sre-agent.fullname" . }}-autoops-rules
+  namespace: {{ include "sre-agent.namespace" . }}
+  labels:
+    app: {{ .Values.autoOps.name }}
+    {{- include "sre-agent.labels" . | nindent 4 }}
+data:
+  rules.yaml: |
+    {{- .Values.autoOps.rulesYaml | nindent 4 }}
+{{- end }}
