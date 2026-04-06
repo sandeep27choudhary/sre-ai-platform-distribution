@@ -125,7 +125,7 @@ if [ -n "$DRY_RUN" ]; then
   HELM_ARGS+=($DRY_RUN)
 fi
 
-helm "${HELM_ARGS[@]}" --wait --timeout 5m
+helm "${HELM_ARGS[@]}" --wait --timeout 15m
 
 echo ""
 ok "Installation complete!"
@@ -145,7 +145,13 @@ if [ -z "$DRY_RUN" ]; then
   echo "  kubectl port-forward svc/api 8000:8000 -n $NAMESPACE"
   echo "  Open http://localhost:3001"
   echo ""
-  info "Login: admin@sre.local / changeme"
+  info "Login: admin@sre.local"
+  info "Retrieve auto-generated password:"
+  echo ""
+  echo "  kubectl get secret ${RELEASE_NAME}-sre-ai-platform-platform \"
+  echo "    -n ${NAMESPACE} \"
+  echo "    -o jsonpath='{.data.SRE_ADMIN_PASSWORD}' | base64 -d && echo"
+  echo ""
   echo ""
 
   info "License status:"
