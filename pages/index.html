@@ -269,6 +269,7 @@
   <div class="install-tabs">
     <button class="tab active" id="tab-curl" onclick="switchTab('curl', this)">Bootstrap</button>
     <button class="tab" id="tab-helm" onclick="switchTab('helm', this)">Helm Repo</button>
+    <button class="tab" id="tab-minikube" onclick="switchTab('minikube', this)">Minikube</button>
     <button class="tab" id="tab-creds" onclick="switchTab('creds', this)">Get Credentials</button>
     <button class="tab" id="tab-upgrade" onclick="switchTab('upgrade', this)">Upgrade / License</button>
   </div>
@@ -292,9 +293,10 @@
 <span class="c-dollar">$ </span><span class="c-cmd">helm repo add</span> sre-ai <span class="c-val">https://sandeep27choudhary.github.io/sre-ai-platform-distribution</span>
 <span class="c-dollar">$ </span><span class="c-cmd">helm repo update</span>
 
-<span class="c-comment"># Install — passwords are auto-generated and stored in a K8s Secret</span>
-<span class="c-dollar">$ </span><span class="c-cmd">helm upgrade --install</span> sre-agent sre-ai/sre-ai-platform \
+<span class="c-comment"># Install — release name matches scripts/install.sh (default: sre-ai-platform)</span>
+<span class="c-dollar">$ </span><span class="c-cmd">helm upgrade --install</span> sre-ai-platform sre-ai/sre-ai-platform \
     <span class="c-flag">-n</span> sre-ai <span class="c-flag">--create-namespace</span> \
+    <span class="c-flag">--set</span> <span class="c-val">createNamespace=false</span> \
     <span class="c-flag">--set-string</span> <span class="c-val">license.trialStartEpoch="$(date +%s)"</span>
 
 <span class="c-comment"># Access the UI</span>
@@ -302,16 +304,72 @@
     </div>
   </div>
 
+  <div id="panel-minikube" class="tab-panel">
+    <p class="section-sub" style="margin-top:0;margin-bottom:1rem">
+      Local cluster with enough RAM for Ollama and Postgres (~11&nbsp;GiB recommended). Use the Docker driver so <code style="color:var(--accent2)">minikube docker-env</code> works for local builds.
+      Chart file: <a href="https://github.com/sandeep27choudhary/sre-ai-platform-distribution/blob/main/helm/sre-agent/values-dev.yaml" target="_blank" rel="noopener">values-dev.yaml</a>.
+    </p>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode('cmd-minikube')">Copy</button>
+      <pre id="cmd-minikube"><span class="c-comment"># ── A) Minikube + images from GHCR (quickest local test) ──</span>
+<span class="c-dollar">$ </span><span class="c-cmd">minikube start</span> <span class="c-flag">--cpus=4</span> <span class="c-flag">--memory=11264</span> <span class="c-flag">--disk-size=40g</span>
+
+<span class="c-dollar">$ </span><span class="c-cmd">helm repo add</span> sre-ai <span class="c-val">https://sandeep27choudhary.github.io/sre-ai-platform-distribution</span>
+<span class="c-dollar">$ </span><span class="c-cmd">helm repo update</span>
+
+<span class="c-dollar">$ </span><span class="c-cmd">helm upgrade --install</span> sre-ai-platform sre-ai/sre-ai-platform \
+    <span class="c-flag">-n</span> sre-ai <span class="c-flag">--create-namespace</span> \
+    <span class="c-flag">--set</span> <span class="c-val">createNamespace=false</span> \
+    <span class="c-flag">--set-string</span> <span class="c-val">license.trialStartEpoch="$(date +%s)"</span> \
+    <span class="c-flag">--wait</span> <span class="c-flag">--timeout</span> <span class="c-val">15m</span>
+
+<span class="c-comment"># First-party images must be pullable (public GHCR or imagePullSecrets)</span>
+
+<span class="c-dollar">$ </span><span class="c-cmd">kubectl port-forward</span> svc/sre-platform-ui <span class="c-val">3001:80</span> <span class="c-flag">-n</span> sre-ai
+<span class="c-comment"># Open http://localhost:3001 — admin@sre.local (password: Get Credentials tab)</span>
+
+<span class="c-comment"># ── B) Minikube + locally built images (offlineMode / pullPolicy Never) ──</span>
+<span class="c-comment"># Build into minikube from the application repo, then install the distribution chart.</span>
+
+<span class="c-dollar">$ </span><span class="c-cmd">minikube start</span> <span class="c-flag">--cpus=4</span> <span class="c-flag">--memory=11264</span> <span class="c-flag">--disk-size=40g</span>
+<span class="c-dollar">$ </span><span class="c-cmd">git clone</span> <span class="c-val">https://github.com/sandeep27choudhary/rag-k8s-llm.git</span> <span class="c-cmd">&amp;&amp; cd</span> rag-k8s-llm
+
+<span class="c-dollar">$ </span><span class="c-cmd">eval</span> <span class="c-val">$(minikube docker-env)</span>
+<span class="c-dollar">$ </span><span class="c-cmd">docker build</span> <span class="c-flag">-t</span> rag-k8s-llm-api:latest ./api
+<span class="c-dollar">$ </span><span class="c-cmd">docker build</span> <span class="c-flag">-t</span> rag-k8s-llm-llm-gateway:latest ./llm-gateway
+<span class="c-dollar">$ </span><span class="c-cmd">docker build</span> <span class="c-flag">-t</span> rag-k8s-llm-worker:latest ./worker
+<span class="c-dollar">$ </span><span class="c-cmd">docker build</span> <span class="c-flag">-t</span> sre-platform-ui:latest ./sre-platform-ui
+
+<span class="c-comment"># Pre-pull chart dependency images (values-dev uses offlineMode → pull policy Never)</span>
+<span class="c-dollar">$ </span><span class="c-cmd">docker pull</span> ollama/ollama:latest
+<span class="c-dollar">$ </span><span class="c-cmd">docker pull</span> pgvector/pgvector:latest
+<span class="c-dollar">$ </span><span class="c-cmd">docker pull</span> redis:7-alpine
+<span class="c-dollar">$ </span><span class="c-cmd">docker pull</span> grafana/loki:2.9.4
+<span class="c-dollar">$ </span><span class="c-cmd">docker pull</span> fluent/fluent-bit:3.2.0
+<span class="c-dollar">$ </span><span class="c-cmd">docker pull</span> minio/minio:latest
+<span class="c-dollar">$ </span><span class="c-cmd">docker pull</span> curlimages/curl:8.6.0
+<span class="c-dollar">$ </span><span class="c-cmd">docker pull</span> busybox:1.36
+
+<span class="c-dollar">$ </span><span class="c-cmd">cd</span> .. <span class="c-cmd">&amp;&amp; git clone</span> <span class="c-val">https://github.com/sandeep27choudhary/sre-ai-platform-distribution.git</span> <span class="c-cmd">&amp;&amp; cd</span> sre-ai-platform-distribution
+
+<span class="c-dollar">$ </span><span class="c-cmd">./scripts/install.sh</span> <span class="c-flag">--namespace</span> sre-ai <span class="c-flag">--values</span> helm/sre-agent/values-dev.yaml
+<span class="c-comment"># values-dev.yaml: offlineMode, imagePullPolicy Never, local image names, dev JWT/password</span>
+<span class="c-comment"># Optional: add --no-trial to skip license.trialStartEpoch</span>
+
+<span class="c-dollar">$ </span><span class="c-cmd">kubectl port-forward</span> svc/sre-platform-ui <span class="c-val">3001:80</span> <span class="c-flag">-n</span> sre-ai</pre>
+    </div>
+  </div>
+
   <div id="panel-creds" class="tab-panel">
     <div class="code-block">
       <button class="copy-btn" onclick="copyCode('cmd-creds')">Copy</button>
-      <pre id="cmd-creds"><span class="c-comment"># Get the auto-generated admin password</span>
-<span class="c-dollar">$ </span><span class="c-cmd">kubectl get secret</span> sre-agent-sre-ai-platform-platform \
+      <pre id="cmd-creds"><span class="c-comment"># Get the auto-generated admin password (release: sre-ai-platform — same as install.sh)</span>
+<span class="c-dollar">$ </span><span class="c-cmd">kubectl get secret</span> sre-ai-platform-sre-ai-platform-platform \
     <span class="c-flag">-n</span> sre-ai \
     <span class="c-flag">-o</span> <span class="c-val">jsonpath='{.data.SRE_ADMIN_PASSWORD}'</span> <span class="c-cmd">| base64 -d</span> && echo
 
 <span class="c-comment"># Get the Postgres password</span>
-<span class="c-dollar">$ </span><span class="c-cmd">kubectl get secret</span> sre-agent-sre-ai-platform-platform \
+<span class="c-dollar">$ </span><span class="c-cmd">kubectl get secret</span> sre-ai-platform-sre-ai-platform-platform \
     <span class="c-flag">-n</span> sre-ai \
     <span class="c-flag">-o</span> <span class="c-val">jsonpath='{.data.POSTGRES_PASSWORD}'</span> <span class="c-cmd">| base64 -d</span> && echo
 
@@ -328,11 +386,11 @@
       <button class="copy-btn" onclick="copyCode('cmd-upgrade')">Copy</button>
       <pre id="cmd-upgrade"><span class="c-comment"># Upgrade to latest chart version (passwords preserved automatically)</span>
 <span class="c-dollar">$ </span><span class="c-cmd">helm repo update</span>
-<span class="c-dollar">$ </span><span class="c-cmd">helm upgrade</span> sre-agent sre-ai/sre-ai-platform \
+<span class="c-dollar">$ </span><span class="c-cmd">helm upgrade</span> sre-ai-platform sre-ai/sre-ai-platform \
     <span class="c-flag">-n</span> sre-ai <span class="c-flag">--reuse-values</span>
 
 <span class="c-comment"># Apply a license key (no reinstall needed)</span>
-<span class="c-dollar">$ </span><span class="c-cmd">helm upgrade</span> sre-agent sre-ai/sre-ai-platform \
+<span class="c-dollar">$ </span><span class="c-cmd">helm upgrade</span> sre-ai-platform sre-ai/sre-ai-platform \
     <span class="c-flag">-n</span> sre-ai \
     <span class="c-flag">--set-string</span> <span class="c-val">license.key='YOUR_LICENSE_KEY'</span> \
     <span class="c-flag">--reuse-values</span>
