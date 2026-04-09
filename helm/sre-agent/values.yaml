@@ -109,7 +109,7 @@ sreRag:
     name: postgres
     image:
       repository: pgvector/pgvector
-      tag: latest
+      tag: pg16 # Docker Hub has no :latest; use pg16 | pg15 | pg14 as published
       pullPolicy: IfNotPresent
     persistence:
       size: 2Gi   # 1–5Gi per spec
